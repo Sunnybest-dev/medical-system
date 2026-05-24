@@ -1,1 +1,0 @@
-# Medical System Django Project
