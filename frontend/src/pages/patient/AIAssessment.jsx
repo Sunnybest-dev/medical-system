@@ -101,7 +101,15 @@ export default function AIAssessment() {
   const handleAssess = () => {
     const followupAnswers = {}
     questions.forEach((q, i) => { followupAnswers[q] = answers[i] || 'Not specified' })
-    assessMutation.mutate({ symptom_ids: selectedSymptoms, followup_answers: followupAnswers })
+    const allSymptoms = symptomsData?.length ? symptomsData : FALLBACK_SYMPTOMS
+    const selectedNames = allSymptoms.filter(s => selectedSymptoms.includes(s.id)).map(s => s.name)
+    // Only pass real UUIDs (not fallback string IDs like 'f1')
+    const realIds = selectedSymptoms.filter(id => !String(id).startsWith('f'))
+    assessMutation.mutate({
+      symptom_ids: realIds,
+      symptom_names: selectedNames,
+      followup_answers: followupAnswers,
+    })
   }
 
   const reset = () => {

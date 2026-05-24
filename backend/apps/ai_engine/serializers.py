@@ -22,7 +22,8 @@ class FollowupQuestionsSerializer(serializers.Serializer):
 
 
 class AssessmentRequestSerializer(serializers.Serializer):
-    symptom_ids = serializers.ListField(child=serializers.UUIDField(), min_length=1)
+    symptom_ids = serializers.ListField(child=serializers.CharField(), required=False, default=list)
+    symptom_names = serializers.ListField(child=serializers.CharField(), required=False, default=list)
     followup_answers = serializers.DictField(child=serializers.CharField(), required=False, default=dict)
 
 

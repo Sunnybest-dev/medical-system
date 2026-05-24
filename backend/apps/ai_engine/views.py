@@ -42,8 +42,17 @@ class PerformAssessmentView(APIView):
         serializer.is_valid(raise_exception=True)
 
         symptoms = Symptom.objects.filter(id__in=serializer.validated_data['symptom_ids'])
+
+        # Fallback: if no DB symptoms found, use symptom_names to create/get them
         if not symptoms.exists():
-            return Response({'error': 'No valid symptoms found.'}, status=status.HTTP_400_BAD_REQUEST)
+            symptom_names = request.data.get('symptom_names', [])
+            if not symptom_names:
+                return Response({'error': 'No valid symptoms found.'}, status=status.HTTP_400_BAD_REQUEST)
+            symptom_objects = []
+            for name in symptom_names:
+                obj, _ = Symptom.objects.get_or_create(name=name, defaults={'category': 'General'})
+                symptom_objects.append(obj)
+            symptoms = Symptom.objects.filter(id__in=[s.id for s in symptom_objects])
 
         # Get patient context
         patient_info = {}

@@ -63,11 +63,11 @@ export const appointmentService = {
 // AI Engine
 export const aiService = {
   getSymptoms: () => api.get('/ai/symptoms/'),
-  getFollowupQuestions: (symptoms) => api.post('/ai/followup/', { symptoms }),
+  getFollowupQuestions: (symptoms) => api.post('/ai/followup-questions/', { symptoms }),
   performAssessment: (data) => api.post('/ai/assess/', data),
   getAssessmentHistory: () => api.get('/ai/assessments/'),
   getAssessmentDetail: (id) => api.get(`/ai/assessments/${id}/`),
-  getMedicationInfo: (medication_name) => api.post('/ai/medication/', { medication_name }),
+  getMedicationInfo: (medication_name) => api.post('/ai/medication-info/', { medication_name }),
 }
 
 // Messaging
