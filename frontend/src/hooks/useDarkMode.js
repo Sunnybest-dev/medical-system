@@ -1,0 +1,22 @@
+import { useEffect, useState } from 'react'
+
+export function useDarkMode() {
+  const [dark, setDark] = useState(() => {
+    const stored = localStorage.getItem('mediai-theme')
+    if (stored) return stored === 'dark'
+    return window.matchMedia('(prefers-color-scheme: dark)').matches
+  })
+
+  useEffect(() => {
+    const root = document.documentElement
+    if (dark) {
+      root.classList.add('dark')
+      localStorage.setItem('mediai-theme', 'dark')
+    } else {
+      root.classList.remove('dark')
+      localStorage.setItem('mediai-theme', 'light')
+    }
+  }, [dark])
+
+  return [dark, setDark]
+}

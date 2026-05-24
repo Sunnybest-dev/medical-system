@@ -2,11 +2,14 @@ import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import {
   LayoutDashboard, Calendar, Clock, Users, MessageSquare,
-  Video, FileText, BarChart2, User, Menu, LogOut, Bell, AlertTriangle
+  FileText, BarChart2, User, Menu, X, LogOut, Bell
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
-import { authService, doctorService } from '@/services'
+import { authService } from '@/services'
 import { Avatar } from '@/components/ui'
+import Logo from '@/components/ui/Logo'
+import DarkModeToggle from '@/components/ui/DarkModeToggle'
+import { useDarkMode } from '@/hooks/useDarkMode'
 import { cn } from '@/utils'
 import toast from 'react-hot-toast'
 
@@ -30,6 +33,7 @@ const statusColors = {
 
 export default function DoctorLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [dark, setDark] = useDarkMode()
   const { user, tokens, logout } = useAuthStore()
   const navigate = useNavigate()
   const doctorStatus = user?.doctor_profile?.online_status || 'offline'
@@ -42,34 +46,32 @@ export default function DoctorLayout() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-950">
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/50 z-20 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 bg-black/60 z-20 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       <aside className={cn(
-        'fixed lg:static inset-y-0 left-0 z-30 w-64 bg-white border-r border-gray-100 flex flex-col transition-transform duration-200',
+        'fixed lg:static inset-y-0 left-0 z-30 w-64 flex flex-col transition-transform duration-200',
+        'bg-white dark:bg-gray-900 border-r border-gray-100 dark:border-gray-800',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       )}>
-        <div className="p-6 border-b border-gray-100">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-primary-600 rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold text-lg">M</span>
-            </div>
-            <div>
-              <h1 className="font-bold text-gray-900">MediAI</h1>
-              <p className="text-xs text-gray-400">Doctor Portal</p>
-            </div>
-          </div>
+        <div className="p-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+          <Logo subtitle="Doctor Portal" />
+          <button className="lg:hidden text-gray-400 hover:text-gray-600 dark:hover:text-gray-200" onClick={() => setSidebarOpen(false)}>
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 p-4 space-y-0.5 overflow-y-auto">
           {navItems.map(({ to, icon: Icon, label, end }) => (
             <NavLink
               key={to} to={to} end={end}
               className={({ isActive }) => cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                isActive ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
+                isActive
+                  ? 'bg-primary-50 dark:bg-primary-950 text-primary-700 dark:text-primary-300'
+                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100'
               )}
               onClick={() => setSidebarOpen(false)}
             >
@@ -79,14 +81,14 @@ export default function DoctorLayout() {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-gray-100">
+        <div className="p-4 border-t border-gray-100 dark:border-gray-800">
           <div className="flex items-center gap-3">
             <div className="relative">
               <Avatar name={`Dr. ${user?.first_name} ${user?.last_name}`} src={user?.avatar} size="sm" />
-              <span className={cn('absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white', statusColors[doctorStatus])} />
+              <span className={cn('absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-gray-900', statusColors[doctorStatus])} />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">Dr. {user?.first_name} {user?.last_name}</p>
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">Dr. {user?.first_name} {user?.last_name}</p>
               <p className="text-xs text-gray-400 capitalize">{doctorStatus.replace('_', ' ')}</p>
             </div>
             <button onClick={handleLogout} className="text-gray-400 hover:text-red-500 transition-colors">
@@ -97,15 +99,16 @@ export default function DoctorLayout() {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between lg:px-6">
+        <header className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 py-3 flex items-center justify-between lg:px-6">
           <button className="lg:hidden" onClick={() => setSidebarOpen(true)}>
-            <Menu className="w-5 h-5 text-gray-600" />
+            <Menu className="w-5 h-5 text-gray-600 dark:text-gray-400" />
           </button>
           <div className="flex-1" />
-          <div className="flex items-center gap-3">
-            <button className="relative text-gray-500 hover:text-gray-700">
-              <Bell className="w-5 h-5" />
+          <div className="flex items-center gap-2">
+            <button className="relative w-9 h-9 flex items-center justify-center text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors">
+              <Bell className="w-4 h-4" />
             </button>
+            <DarkModeToggle dark={dark} setDark={setDark} />
           </div>
         </header>
 
