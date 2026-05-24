@@ -12,7 +12,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-production')
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1,.railway.app,.up.railway.app').split(',')
+_allowed = config('ALLOWED_HOSTS', default='localhost,127.0.0.1')
+ALLOWED_HOSTS = [h.strip() for h in _allowed.split(',')]
+# Render automatically sets RENDER_EXTERNAL_HOSTNAME
+_render_host = os.environ.get('RENDER_EXTERNAL_HOSTNAME')
+if _render_host:
+    ALLOWED_HOSTS.append(_render_host)
 
 DJANGO_APPS = [
     'django.contrib.admin',
