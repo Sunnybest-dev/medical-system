@@ -99,7 +99,7 @@ Reported Symptoms: {symptom_list}
 Follow-up Information:
 {answers_text}
 
-Provide a health assessment in the following JSON format ONLY:
+Provide a detailed health assessment in the following JSON format ONLY:
 {{
   "severity_level": "green|yellow|red",
   "severity_reason": "Brief explanation of severity",
@@ -109,7 +109,19 @@ Provide a health assessment in the following JSON format ONLY:
   "suggested_specialist": "Type of specialist",
   "recommendations": "Specific actionable recommendations",
   "when_to_seek_emergency": "Signs that require immediate emergency care",
-  "general_care_tips": ["tip1", "tip2"]
+  "general_care_tips": ["tip1", "tip2"],
+  "suggested_medications": [
+    {{
+      "name": "Medication name (generic)",
+      "purpose": "What it treats in this context",
+      "how_to_take": "e.g. Take 1 tablet every 8 hours with food",
+      "duration": "e.g. 5-7 days or as directed by doctor",
+      "common_side_effects": ["nausea", "dizziness"],
+      "overdose_warning": "What happens if too much is taken and what to do",
+      "otc_or_prescription": "OTC or Prescription"
+    }}
+  ],
+  "diagnosis_summary": "A plain-language summary of what the patient likely has based on symptoms and answers"
 }}
 
 SEVERITY RULES:
@@ -117,7 +129,12 @@ SEVERITY RULES:
 - YELLOW: Persistent fever >3 days, repeated vomiting, moderate pain, worsening symptoms
 - GREEN: Mild symptoms, common cold, minor headache, manageable conditions
 
-NEVER use the word "diagnosis". Always use "possible conditions".
+IMPORTANT RULES:
+- For suggested_medications, only suggest safe OTC drugs where appropriate. Always note if prescription is needed.
+- Include overdose_warning for every suggested medication.
+- diagnosis_summary must be written in simple language a non-medical person understands.
+- NEVER use the word "diagnosis" in possible_conditions. Use "possible conditions".
+- Always recommend consulting a doctor before taking any medication.
 """
         response = self.provider.generate(prompt)
         try:

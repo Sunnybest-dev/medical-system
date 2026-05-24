@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import {
   Brain, ChevronRight, AlertTriangle, CheckCircle, Stethoscope,
   ArrowLeft, History, Search, Sparkles, Activity, Heart, Thermometer,
-  Wind, Zap, Eye, Ear, Bone, Pill
+  Wind, Zap, Eye, Ear, Bone, Pill, FileText, ShieldAlert, Clock, Info
 } from 'lucide-react'
 import { aiService } from '@/services'
 import { Card, Badge, MedicalDisclaimer, Spinner } from '@/components/ui'
@@ -459,6 +459,91 @@ export default function AIAssessment() {
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {/* Diagnosis Summary */}
+          {result.diagnosis_summary && (
+            <div className="bg-white dark:bg-gray-900 rounded-2xl border-2 border-primary-200 dark:border-primary-800 p-5">
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-primary-600" /> Assessment Summary
+              </h3>
+              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{result.diagnosis_summary}</p>
+            </div>
+          )}
+
+          {/* Suggested Medications */}
+          {result.suggested_medications?.length > 0 && (
+            <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+              <div className="flex items-center gap-2 px-5 py-4 bg-emerald-50 dark:bg-emerald-950 border-b border-emerald-100 dark:border-emerald-900">
+                <Pill className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                <h3 className="font-semibold text-emerald-900 dark:text-emerald-200">Suggested Medications</h3>
+                <span className="ml-auto text-xs text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900 px-2 py-0.5 rounded-full">
+                  Always consult a doctor before taking
+                </span>
+              </div>
+              <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                {result.suggested_medications.map((med, i) => (
+                  <div key={i} className="p-5 space-y-3">
+                    {/* Med header */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-primary-100 dark:bg-primary-950 rounded-xl flex items-center justify-center flex-shrink-0">
+                          <Pill className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+                        </div>
+                        <div>
+                          <p className="font-bold text-gray-900 dark:text-white">{med.name}</p>
+                          {med.purpose && <p className="text-xs text-gray-500 dark:text-gray-400">{med.purpose}</p>}
+                        </div>
+                      </div>
+                      {med.otc_or_prescription && (
+                        <Badge variant={med.otc_or_prescription === 'OTC' ? 'success' : 'warning'}>
+                          {med.otc_or_prescription}
+                        </Badge>
+                      )}
+                    </div>
+
+                    {/* How to take */}
+                    {med.how_to_take && (
+                      <div className="flex items-start gap-2.5 bg-blue-50 dark:bg-blue-950 rounded-xl p-3">
+                        <Clock className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-xs font-semibold text-blue-700 dark:text-blue-300 mb-0.5">How to Take</p>
+                          <p className="text-sm text-blue-800 dark:text-blue-200">{med.how_to_take}</p>
+                          {med.duration && <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Duration: {med.duration}</p>}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Side effects */}
+                    {med.common_side_effects?.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 flex items-center gap-1">
+                          <Info className="w-3.5 h-3.5" /> Common Side Effects
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {med.common_side_effects.map((se, j) => (
+                            <span key={j} className="text-xs bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 px-2 py-0.5 rounded-full">
+                              {se}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Overdose warning */}
+                    {med.overdose_warning && (
+                      <div className="flex items-start gap-2.5 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-xl p-3">
+                        <ShieldAlert className="w-4 h-4 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-xs font-semibold text-red-700 dark:text-red-400 mb-0.5">⚠️ Overdose Warning</p>
+                          <p className="text-sm text-red-700 dark:text-red-300">{med.overdose_warning}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
