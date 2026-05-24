@@ -160,9 +160,14 @@ REST_FRAMEWORK = {
 
 # ─── CORS ─────────────────────────────────────────────────────────────────────
 _cors_origins = config('CORS_ALLOWED_ORIGINS', default='http://localhost:5173,http://localhost:3000')
-CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_origins.split(',') if o.strip()]
+CORS_ALLOWED_ORIGINS = [o.strip().rstrip('/') for o in _cors_origins.split(',') if o.strip()]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = DEBUG  # allow all in dev only
+CORS_ALLOW_HEADERS = [
+    'accept', 'accept-encoding', 'authorization', 'content-type',
+    'dnt', 'origin', 'user-agent', 'x-csrftoken', 'x-requested-with',
+]
+CORS_ALLOW_METHODS = ['DELETE', 'GET', 'OPTIONS', 'PATCH', 'POST', 'PUT']
 
 # ─── Channels / WebSocket ─────────────────────────────────────────────────────
 _redis_url = config('REDIS_URL', default='')
