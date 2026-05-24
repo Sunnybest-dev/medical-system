@@ -59,14 +59,29 @@ export default function AIAssessment() {
   const [answers, setAnswers] = useState({})
   const [result, setResult] = useState(null)
   const [search, setSearch] = useState('')
+  const [customInput, setCustomInput] = useState('')
+  const [customSymptoms, setCustomSymptoms] = useState([])
 
   const { data: symptomsData, isLoading } = useQuery({
     queryKey: ['symptoms'],
     queryFn: () => aiService.getSymptoms().then((r) => r.data.results || r.data),
   })
 
-  const symptoms = (symptomsData?.length ? symptomsData : FALLBACK_SYMPTOMS)
-    .filter(s => s.name.toLowerCase().includes(search.toLowerCase()))
+  const baseSymptoms = symptomsData?.length ? symptomsData : FALLBACK_SYMPTOMS
+  const symptoms = baseSymptoms.filter(s => s.name.toLowerCase().includes(search.toLowerCase()))
+
+  const addCustomSymptom = () => {
+    const trimmed = customInput.trim()
+    if (!trimmed) return
+    const id = `custom_${trimmed.toLowerCase().replace(/\s+/g, '_')}`
+    if (customSymptoms.find(s => s.id === id)) { setCustomInput(''); return }
+    const newSymptom = { id, name: trimmed, category: 'Custom', is_emergency: false }
+    setCustomSymptoms(prev => [...prev, newSymptom])
+    setSelectedSymptoms(prev => [...prev, id])
+    setCustomInput('')
+  }
+
+  const allSymptoms = [...baseSymptoms, ...customSymptoms]
 
   // Group by category
   const grouped = symptoms.reduce((acc, s) => {
@@ -92,8 +107,7 @@ export default function AIAssessment() {
     setSelectedSymptoms(prev => prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id])
 
   const handleNext = () => {
-    if (selectedSymptoms.length === 0) return toast.error('Please select at least one symptom')
-    const allSymptoms = symptomsData?.length ? symptomsData : FALLBACK_SYMPTOMS
+    if (selectedSymptoms.length === 0) return toast.error('Please select or type at least one symptom')
     const names = allSymptoms.filter(s => selectedSymptoms.includes(s.id)).map(s => s.name)
     followupMutation.mutate(names)
   }
@@ -101,10 +115,8 @@ export default function AIAssessment() {
   const handleAssess = () => {
     const followupAnswers = {}
     questions.forEach((q, i) => { followupAnswers[q] = answers[i] || 'Not specified' })
-    const allSymptoms = symptomsData?.length ? symptomsData : FALLBACK_SYMPTOMS
     const selectedNames = allSymptoms.filter(s => selectedSymptoms.includes(s.id)).map(s => s.name)
-    // Only pass real UUIDs (not fallback string IDs like 'f1')
-    const realIds = selectedSymptoms.filter(id => !String(id).startsWith('f'))
+    const realIds = selectedSymptoms.filter(id => !String(id).startsWith('f') && !String(id).startsWith('custom_'))
     assessMutation.mutate({
       symptom_ids: realIds,
       symptom_names: selectedNames,
@@ -113,7 +125,7 @@ export default function AIAssessment() {
   }
 
   const reset = () => {
-    setStep(0); setSelectedSymptoms([]); setQuestions([]); setAnswers({}); setResult(null); setSearch('')
+    setStep(0); setSelectedSymptoms([]); setQuestions([]); setAnswers({}); setResult(null); setSearch(''); setCustomInput(''); setCustomSymptoms([])
   }
 
   const severity = result ? severityConfig[result.severity_level] : null
@@ -189,6 +201,48 @@ export default function AIAssessment() {
               onChange={e => setSearch(e.target.value)}
               className="input pl-9"
             />
+          </div>
+
+          {/* Type your own symptom */}
+          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-4">
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary-500" />
+              Can't find your symptom? Type it in
+            </p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="e.g. burning sensation, blurry vision, ringing in ears..."
+                value={customInput}
+                onChange={e => setCustomInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addCustomSymptom()}
+                className="input flex-1"
+              />
+              <Button
+                onClick={addCustomSymptom}
+                disabled={!customInput.trim()}
+                variant="secondary"
+                className="flex-shrink-0"
+              >
+                Add
+              </Button>
+            </div>
+            {customSymptoms.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-3">
+                {customSymptoms.map(s => (
+                  <span key={s.id} className="inline-flex items-center gap-1 bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 text-xs font-medium px-2.5 py-1 rounded-full border border-purple-200 dark:border-purple-800">
+                    ✏️ {s.name}
+                    <button
+                      onClick={() => {
+                        setCustomSymptoms(prev => prev.filter(c => c.id !== s.id))
+                        setSelectedSymptoms(prev => prev.filter(id => id !== s.id))
+                      }}
+                      className="ml-0.5 hover:text-purple-900 dark:hover:text-purple-100"
+                    >×</button>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Selected pills */}
