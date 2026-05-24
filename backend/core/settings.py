@@ -91,10 +91,17 @@ TEMPLATES = [
 ]
 
 # ─── Database ────────────────────────────────────────────────────────────────
-# Railway injects DATABASE_URL automatically; fall back to individual vars locally
+# Supports Supabase / Render / Railway DATABASE_URL or individual vars
 _database_url = config('DATABASE_URL', default='')
 if _database_url:
-    DATABASES = {'default': dj_database_url.parse(_database_url, conn_max_age=600)}
+    # Supabase uses postgresql:// — dj_database_url handles it
+    DATABASES = {
+        'default': dj_database_url.parse(
+            _database_url,
+            conn_max_age=600,
+            ssl_require=not DEBUG,
+        )
+    }
 else:
     DATABASES = {
         'default': {
@@ -158,16 +165,19 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_ORIGINS = DEBUG  # allow all in dev only
 
 # ─── Channels / WebSocket ─────────────────────────────────────────────────────
-# Use Redis if available, fall back to in-memory (fine for single-worker free tier)
 _redis_url = config('REDIS_URL', default='')
-if _redis_url:
-    CHANNEL_LAYERS = {
-        'default': {
-            'BACKEND': 'channels_redis.core.RedisChannelLayer',
-            'CONFIG': {'hosts': [_redis_url]},
-        },
-    }
-else:
+try:
+    if _redis_url:
+        from channels_redis.core import RedisChannelLayer  # noqa: F401
+        CHANNEL_LAYERS = {
+            'default': {
+                'BACKEND': 'channels_redis.core.RedisChannelLayer',
+                'CONFIG': {'hosts': [_redis_url]},
+            },
+        }
+    else:
+        raise ImportError
+except Exception:
     CHANNEL_LAYERS = {
         'default': {
             'BACKEND': 'channels.layers.InMemoryChannelLayer',
