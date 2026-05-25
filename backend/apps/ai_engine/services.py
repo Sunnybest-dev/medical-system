@@ -58,13 +58,18 @@ class HealthAssessmentService:
             return default_questions
 
         symptom_list = ', '.join(symptoms)
-        prompt = f"""{self.DISCLAIMER}
+        prompt = f"""You are a medical triage assistant. A patient reports: {symptom_list}
 
-A patient reports these symptoms: {symptom_list}
+Generate 5 highly specific follow-up questions tailored EXACTLY to these symptoms.
+Each question must directly relate to one or more of the reported symptoms.
+Do NOT ask generic questions like "how long" or "rate your pain" unless directly relevant.
 
-Generate 4-5 relevant follow-up questions to better understand their condition.
-Return ONLY a JSON array of question strings. Example:
-["How long have you had these symptoms?", "Rate your pain from 1-10"]
+Examples for headache: "Is the headache throbbing or constant?", "Does light or noise make it worse?"
+Examples for chest pain: "Does the pain radiate to your arm or jaw?", "Does it worsen with physical activity?"
+Examples for fever: "What is your temperature reading?", "Do you have chills or night sweats?"
+
+Return ONLY a JSON array of 5 question strings, no explanation:
+["question 1", "question 2", "question 3", "question 4", "question 5"]
 """
         response = self.provider.generate(prompt)
         try:

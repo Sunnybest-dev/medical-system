@@ -46,6 +46,7 @@ import AdminAnalytics from '@/pages/admin/Analytics'
 
 // Landing
 import LandingPage from '@/pages/LandingPage'
+import RegisterAdminPage from '@/pages/auth/RegisterAdminPage'
 
 function ProtectedRoute({ children, allowedRoles }) {
   const { isAuthenticated, user } = useAuthStore()
@@ -65,6 +66,7 @@ export default function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPatientPage />} />
         <Route path="/register/doctor" element={<RegisterDoctorPage />} />
+        <Route path="/register/admin" element={<RegisterAdminPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
         <Route path="/verify-email" element={<VerifyEmailPage />} />

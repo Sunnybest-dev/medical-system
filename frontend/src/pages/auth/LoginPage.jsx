@@ -7,6 +7,7 @@ import { authService } from '@/services'
 import { useAuthStore } from '@/store/authStore'
 import { Input } from '@/components/ui/FormFields'
 import Button from '@/components/ui/Button'
+import Logo from '@/components/ui/Logo'
 import toast from 'react-hot-toast'
 
 const schema = z.object({
@@ -36,15 +37,12 @@ export default function LoginPage() {
   })
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-blue-100 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 via-white to-purple-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         {/* Logo */}
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-primary-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <span className="text-white text-3xl font-bold">M</span>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900">Welcome to MediAI</h1>
-          <p className="text-gray-500 mt-1">AI-Powered Telehealth Platform</p>
+        <div className="text-center mb-8 flex flex-col items-center">
+          <Logo size="lg" />
+          <p className="text-gray-500 mt-2">AI-Powered Telehealth Platform</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
@@ -80,15 +78,15 @@ export default function LoginPage() {
           <div className="mt-6 text-center space-y-2">
             <p className="text-sm text-gray-500">
               Don't have an account?{' '}
-              <Link to="/register" className="text-primary-600 font-medium hover:underline">
-                Register as Patient
-              </Link>
+              <Link to="/register" className="text-primary-600 font-medium hover:underline">Register as Patient</Link>
             </p>
             <p className="text-sm text-gray-500">
               Are you a doctor?{' '}
-              <Link to="/register/doctor" className="text-primary-600 font-medium hover:underline">
-                Register as Doctor
-              </Link>
+              <Link to="/register/doctor" className="text-primary-600 font-medium hover:underline">Register as Doctor</Link>
+            </p>
+            <p className="text-sm text-gray-500">
+              Admin?{' '}
+              <Link to="/register/admin" className="text-primary-600 font-medium hover:underline">Create Admin Account</Link>
             </p>
           </div>
         </div>

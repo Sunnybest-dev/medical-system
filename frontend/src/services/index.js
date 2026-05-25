@@ -5,6 +5,7 @@ export const authService = {
   loginPatient: (data) => api.post('/auth/login/', data),
   registerPatient: (data) => api.post('/auth/register/patient/', data),
   registerDoctor: (data) => api.post('/auth/register/doctor/', data),
+  registerAdmin: (data) => api.post('/auth/register/admin/', data),
   logout: (refresh) => api.post('/auth/logout/', { refresh }),
   me: () => api.get('/auth/me/'),
   updateMe: (data) => api.patch('/auth/me/', data),

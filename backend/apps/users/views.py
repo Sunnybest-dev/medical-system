@@ -18,6 +18,31 @@ from .tasks import send_verification_email, send_password_reset_email
 User = get_user_model()
 
 
+class AdminRegisterView(generics.CreateAPIView):
+    permission_classes = [permissions.AllowAny]
+
+    def create(self, request, *args, **kwargs):
+        secret = request.data.get('admin_secret', '')
+        expected = getattr(settings, 'ADMIN_SECRET_KEY', 'mediai-admin-secret')
+        if secret != expected:
+            return Response({'error': 'Invalid admin secret key.'}, status=status.HTTP_403_FORBIDDEN)
+        data = {k: v for k, v in request.data.items() if k != 'admin_secret'}
+        user = User.objects.create_user(
+            email=data['email'],
+            password=data['password'],
+            first_name=data.get('first_name', ''),
+            last_name=data.get('last_name', ''),
+            role=User.Role.ADMIN,
+            is_email_verified=True,
+            is_staff=True,
+        )
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'user': UserSerializer(user).data,
+            'tokens': {'refresh': str(refresh), 'access': str(refresh.access_token)},
+        }, status=status.HTTP_201_CREATED)
+
+
 class PatientRegisterView(generics.CreateAPIView):
     serializer_class = PatientRegisterSerializer
     permission_classes = [permissions.AllowAny]
