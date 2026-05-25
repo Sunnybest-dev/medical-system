@@ -73,19 +73,27 @@ class AppointmentStatusUpdateView(APIView):
 
 
 class JitsiTokenView(APIView):
-    """Generate Jitsi Meet JWT token for secure room access"""
+    """Generate Jitsi Meet room info for video consultation"""
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, pk):
         try:
-            appointment = Appointment.objects.get(
-                pk=pk,
-                status__in=['confirmed', 'pending']
-            )
-            if request.user != appointment.patient and request.user != appointment.doctor.user:
-                return Response({'error': 'Access denied.'}, status=status.HTTP_403_FORBIDDEN)
+            appointment = Appointment.objects.select_related(
+                'patient', 'doctor__user'
+            ).get(pk=pk)
         except Appointment.DoesNotExist:
             return Response({'error': 'Appointment not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if request.user != appointment.patient and request.user != appointment.doctor.user:
+            return Response({'error': 'Access denied.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if appointment.status not in ['confirmed', 'pending']:
+            return Response({'error': 'Appointment is not active.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Ensure room name exists
+        if not appointment.jitsi_room_name:
+            appointment.jitsi_room_name = f'mediai-{appointment.id}'
+            appointment.save(update_fields=['jitsi_room_name'])
 
         return Response({
             'room_name': appointment.jitsi_room_name,
@@ -93,7 +101,7 @@ class JitsiTokenView(APIView):
             'user_info': {
                 'displayName': request.user.full_name,
                 'email': request.user.email,
-                'avatar': request.user.avatar,
+                'avatar': getattr(request.user, 'avatar', ''),
             }
         })
 

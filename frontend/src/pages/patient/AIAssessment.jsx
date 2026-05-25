@@ -68,9 +68,16 @@ export default function AIAssessment() {
   })
 
   const baseSymptoms = symptomsData?.length ? symptomsData : FALLBACK_SYMPTOMS
-  const symptoms = baseSymptoms.filter(s => s.name.toLowerCase().includes(search.toLowerCase()))
+  const allSymptoms = [...baseSymptoms, ...customSymptoms]
+  const symptoms = allSymptoms.filter(s => s.name.toLowerCase().includes(search.toLowerCase()))
 
-  const addCustomSymptom = () => {
+  // Group by category — includes custom typed symptoms
+  const grouped = symptoms.reduce((acc, s) => {
+    const cat = s.category || 'General'
+    if (!acc[cat]) acc[cat] = []
+    acc[cat].push(s)
+    return acc
+  }, {})
     const trimmed = customInput.trim()
     if (!trimmed) return
     const id = `custom_${trimmed.toLowerCase().replace(/\s+/g, '_')}`
