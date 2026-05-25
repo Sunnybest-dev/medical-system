@@ -91,7 +91,7 @@ export const emergencyService = {
 export const paymentService = {
   list: () => api.get('/payments/'),
   initiate: (data) => api.post('/payments/initiate/', data),
-  demoComplete: (id) => api.post(`/payments/${id}/demo-complete/`),
+  demoComplete: (reference) => api.post('/payments/confirm-demo/', { reference }),
 }
 
 // Notifications

@@ -78,6 +78,8 @@ export default function AIAssessment() {
     acc[cat].push(s)
     return acc
   }, {})
+
+  const addCustomSymptom = () => {
     const trimmed = customInput.trim()
     if (!trimmed) return
     const id = `custom_${trimmed.toLowerCase().replace(/\s+/g, '_')}`
@@ -87,16 +89,6 @@ export default function AIAssessment() {
     setSelectedSymptoms(prev => [...prev, id])
     setCustomInput('')
   }
-
-  const allSymptoms = [...baseSymptoms, ...customSymptoms]
-
-  // Group by category
-  const grouped = symptoms.reduce((acc, s) => {
-    const cat = s.category || 'General'
-    if (!acc[cat]) acc[cat] = []
-    acc[cat].push(s)
-    return acc
-  }, {})
 
   const followupMutation = useMutation({
     mutationFn: (syms) => aiService.getFollowupQuestions(syms),
@@ -259,7 +251,7 @@ export default function AIAssessment() {
                 Selected ({selectedSymptoms.length}):
               </p>
               <div className="flex flex-wrap gap-2">
-                {(symptomsData?.length ? symptomsData : FALLBACK_SYMPTOMS)
+                {allSymptoms
                   .filter(s => selectedSymptoms.includes(s.id))
                   .map(s => (
                     <button
@@ -500,15 +492,28 @@ export default function AIAssessment() {
                         </div>
                         <div>
                           <p className="font-bold text-gray-900 dark:text-white">{med.name}</p>
+                          {med.generic_name && <p className="text-xs text-gray-400">Generic: {med.generic_name}</p>}
                           {med.purpose && <p className="text-xs text-gray-500 dark:text-gray-400">{med.purpose}</p>}
                         </div>
                       </div>
-                      {med.otc_or_prescription && (
-                        <Badge variant={med.otc_or_prescription === 'OTC' ? 'success' : 'warning'}>
-                          {med.otc_or_prescription}
+                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                        {med.otc_or_prescription && (
+                          <Badge variant={med.otc_or_prescription === 'OTC' ? 'success' : 'warning'}>
+                            {med.otc_or_prescription}
+                          </Badge>
+                        )}
+                        <Badge variant={med.source === 'fda' ? 'info' : 'default'}>
+                          {med.source === 'fda' ? '🏛️ FDA Data' : '🤖 AI'}
                         </Badge>
-                      )}
+                      </div>
                     </div>
+
+                    {/* Drug class */}
+                    {med.drug_class && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                        <FileText className="w-3 h-3" /> {med.drug_class}
+                      </p>
+                    )}
 
                     {/* How to take */}
                     {med.how_to_take && (
@@ -535,6 +540,35 @@ export default function AIAssessment() {
                             </span>
                           ))}
                         </div>
+                      </div>
+                    )}
+
+                    {/* Serious side effects */}
+                    {med.serious_side_effects?.length > 0 && (
+                      <div className="flex items-start gap-2.5 bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-xl p-3">
+                        <AlertTriangle className="w-4 h-4 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-xs font-semibold text-orange-700 dark:text-orange-400 mb-1">Serious Side Effects</p>
+                          <ul className="space-y-0.5">
+                            {med.serious_side_effects.map((se, j) => (
+                              <li key={j} className="text-xs text-orange-700 dark:text-orange-300">{se}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Contraindications */}
+                    {med.contraindications?.length > 0 && (
+                      <div>
+                        <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-1.5 flex items-center gap-1">
+                          <ShieldAlert className="w-3.5 h-3.5" /> Do Not Use If
+                        </p>
+                        <ul className="space-y-0.5">
+                          {med.contraindications.map((c, j) => (
+                            <li key={j} className="text-xs text-gray-600 dark:text-gray-400">• {c}</li>
+                          ))}
+                        </ul>
                       </div>
                     )}
 

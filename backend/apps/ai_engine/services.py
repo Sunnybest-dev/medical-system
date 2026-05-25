@@ -3,6 +3,7 @@ from django.conf import settings
 import json
 import re
 import logging
+import requests
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,60 @@ class GeminiProvider:
             return ''
 
 
+class OpenFDAService:
+    BASE_URL = 'https://api.fda.gov/drug/label.json'
+
+    def fetch(self, drug_name: str) -> dict | None:
+        """Query OpenFDA by generic name first, then brand name."""
+        for field in ('openfda.generic_name', 'openfda.brand_name'):
+            try:
+                res = requests.get(
+                    self.BASE_URL,
+                    params={'search': f'{field}:"{drug_name}"', 'limit': 1},
+                    timeout=5,
+                )
+                if not res.ok:
+                    continue
+                results = res.json().get('results', [])
+                if not results:
+                    continue
+                r = results[0]
+                return {
+                    'source': 'fda',
+                    'name': r.get('openfda', {}).get('brand_name', [drug_name])[0],
+                    'generic_name': r.get('openfda', {}).get('generic_name', [''])[0],
+                    'drug_class': (
+                        r.get('openfda', {}).get('pharm_class_epc', [''])[0] or
+                        r.get('openfda', {}).get('product_type', [''])[0]
+                    ),
+                    'how_to_take': (r.get('dosage_and_administration') or [''])[0][:300] or None,
+                    'common_side_effects': [
+                        s.strip() for s in
+                        re.split(r'[,;]', (r.get('adverse_reactions') or [''])[0])[:8]
+                        if s.strip()
+                    ],
+                    'serious_side_effects': [
+                        s.strip() for s in
+                        ((r.get('warnings') or [''])[0]).split('.')[:4]
+                        if len(s.strip()) > 10
+                    ],
+                    'contraindications': [
+                        s.strip() for s in
+                        ((r.get('contraindications') or [''])[0]).split('.')[:4]
+                        if len(s.strip()) > 10
+                    ],
+                    'overdose_warning': (r.get('overdosage') or [''])[0][:300] or None,
+                    'warnings': [
+                        s.strip() for s in
+                        ((r.get('boxed_warning') or [''])[0]).split('.')[:3]
+                        if len(s.strip()) > 10
+                    ],
+                }
+            except Exception as e:
+                logger.warning(f'OpenFDA lookup failed for "{drug_name}": {e}')
+        return None
+
+
 class HealthAssessmentService:
     DISCLAIMER = (
         "CRITICAL: You are an AI health information assistant. "
@@ -44,6 +99,7 @@ class HealthAssessmentService:
 
     def __init__(self):
         self.provider = GeminiProvider()
+        self.fda = OpenFDAService()
 
     def get_followup_questions(self, symptoms: list) -> list:
         default_questions = [
@@ -117,13 +173,10 @@ Provide a detailed health assessment in the following JSON format ONLY:
   "general_care_tips": ["tip1", "tip2"],
   "suggested_medications": [
     {{
-      "name": "Medication name (generic)",
-      "purpose": "What it treats in this context",
-      "how_to_take": "e.g. Take 1 tablet every 8 hours with food",
-      "duration": "e.g. 5-7 days or as directed by doctor",
-      "common_side_effects": ["nausea", "dizziness"],
-      "overdose_warning": "What happens if too much is taken and what to do",
-      "otc_or_prescription": "OTC or Prescription"
+      "name": "Generic medication name only (e.g. ibuprofen, paracetamol, amoxicillin)",
+      "purpose": "Why this medication is relevant to the patient's specific symptoms",
+      "otc_or_prescription": "OTC or Prescription",
+      "duration": "e.g. 5-7 days or as directed by doctor"
     }}
   ],
   "diagnosis_summary": "A plain-language summary of what the patient likely has based on symptoms and answers"
@@ -135,8 +188,8 @@ SEVERITY RULES:
 - GREEN: Mild symptoms, common cold, minor headache, manageable conditions
 
 IMPORTANT RULES:
-- For suggested_medications, only suggest safe OTC drugs where appropriate. Always note if prescription is needed.
-- Include overdose_warning for every suggested medication.
+- For suggested_medications, use only the generic drug name so it can be looked up in a drug database.
+- Suggest at most 3 medications. Only suggest safe OTC drugs where appropriate.
 - diagnosis_summary must be written in simple language a non-medical person understands.
 - NEVER use the word "diagnosis" in possible_conditions. Use "possible conditions".
 - Always recommend consulting a doctor before taking any medication.
@@ -146,6 +199,9 @@ IMPORTANT RULES:
             json_match = re.search(r'\{.*\}', response, re.DOTALL)
             if json_match:
                 result = json.loads(json_match.group())
+                result['suggested_medications'] = self._enrich_medications(
+                    result.get('suggested_medications', [])
+                )
                 result['disclaimer'] = (
                     "IMPORTANT MEDICAL DISCLAIMER: This AI health assessment is for informational purposes only. "
                     "It does NOT constitute a medical diagnosis. Always consult a qualified healthcare professional."
@@ -155,6 +211,31 @@ IMPORTANT RULES:
             pass
 
         return self._fallback_assessment(symptoms)
+
+    def _enrich_medications(self, medications: list) -> list:
+        """Enrich Gemini-suggested drug names with real FDA data, falling back to Gemini fields."""
+        enriched = []
+        for med in medications:
+            name = med.get('name', '')
+            fda_data = self.fda.fetch(name)
+            if fda_data:
+                enriched.append({
+                    **med,
+                    'source': 'fda',
+                    'name': fda_data.get('name') or name,
+                    'generic_name': fda_data.get('generic_name', ''),
+                    'drug_class': fda_data.get('drug_class', ''),
+                    'how_to_take': fda_data.get('how_to_take') or med.get('how_to_take', ''),
+                    'common_side_effects': fda_data.get('common_side_effects', []),
+                    'serious_side_effects': fda_data.get('serious_side_effects', []),
+                    'contraindications': fda_data.get('contraindications', []),
+                    'overdose_warning': fda_data.get('overdose_warning') or med.get('overdose_warning', ''),
+                    'warnings': fda_data.get('warnings', []),
+                })
+            else:
+                # FDA had nothing — keep Gemini's own fields as-is
+                enriched.append({**med, 'source': 'ai'})
+        return enriched
 
     def _fallback_assessment(self, symptoms: list) -> dict:
         emergency_keywords = ['chest pain', 'difficulty breathing', 'stroke', 'seizure', 'severe bleeding', 'unconscious', 'palpitations']
