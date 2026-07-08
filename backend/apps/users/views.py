@@ -1,6 +1,7 @@
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
@@ -18,8 +19,13 @@ from .tasks import send_verification_email, send_password_reset_email
 User = get_user_model()
 
 
+class AuthRateThrottle(AnonRateThrottle):
+    scope = 'auth'
+
+
 class AdminRegisterView(generics.CreateAPIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [AuthRateThrottle]
 
     def create(self, request, *args, **kwargs):
         secret = request.data.get('admin_secret', '')
@@ -27,6 +33,12 @@ class AdminRegisterView(generics.CreateAPIView):
         if secret != expected:
             return Response({'error': 'Invalid admin secret key.'}, status=status.HTTP_403_FORBIDDEN)
         data = {k: v for k, v in request.data.items() if k != 'admin_secret'}
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError
+        try:
+            validate_password(data.get('password', ''))
+        except ValidationError as e:
+            return Response({'error': list(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
         user = User.objects.create_user(
             email=data['email'],
             password=data['password'],
@@ -46,6 +58,7 @@ class AdminRegisterView(generics.CreateAPIView):
 class PatientRegisterView(generics.CreateAPIView):
     serializer_class = PatientRegisterSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [AuthRateThrottle]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -64,6 +77,7 @@ class PatientRegisterView(generics.CreateAPIView):
 class DoctorRegisterView(generics.CreateAPIView):
     serializer_class = DoctorRegisterSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [AuthRateThrottle]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -82,6 +96,7 @@ class DoctorRegisterView(generics.CreateAPIView):
 class LoginView(TokenObtainPairView):
     serializer_class = MediAITokenObtainPairSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [AuthRateThrottle]
 
 
 class LogoutView(APIView):
@@ -109,6 +124,9 @@ class VerifyEmailView(APIView):
         token = request.data.get('token')
         try:
             verification = EmailVerificationToken.objects.get(token=token)
+            if verification.is_expired:
+                verification.delete()
+                return Response({'error': 'Verification link has expired. Please register again.'}, status=status.HTTP_400_BAD_REQUEST)
             verification.user.is_email_verified = True
             verification.user.save()
             verification.delete()
@@ -119,6 +137,7 @@ class VerifyEmailView(APIView):
 
 class ForgotPasswordView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [AuthRateThrottle]
 
     def post(self, request):
         email = request.data.get('email')
@@ -139,6 +158,18 @@ class ResetPasswordView(APIView):
         new_password = request.data.get('new_password')
         try:
             reset_token = PasswordResetToken.objects.get(token=token, is_used=False)
+            # Expire tokens older than 1 hour
+            from django.utils import timezone
+            from datetime import timedelta
+            if timezone.now() > reset_token.created_at + timedelta(hours=1):
+                reset_token.delete()
+                return Response({'error': 'Reset link has expired. Please request a new one.'}, status=status.HTTP_400_BAD_REQUEST)
+            from django.contrib.auth.password_validation import validate_password
+            from django.core.exceptions import ValidationError
+            try:
+                validate_password(new_password, reset_token.user)
+            except ValidationError as e:
+                return Response({'error': list(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
             reset_token.user.set_password(new_password)
             reset_token.user.save()
             reset_token.is_used = True
@@ -162,6 +193,7 @@ class ChangePasswordView(APIView):
 
 class GoogleAuthView(APIView):
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [AuthRateThrottle]
 
     def post(self, request):
         serializer = GoogleAuthSerializer(data=request.data)

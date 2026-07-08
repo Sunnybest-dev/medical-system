@@ -3,7 +3,9 @@ from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from .models import Notification
 from django.contrib.auth import get_user_model
+import logging
 
+logger = logging.getLogger(__name__)
 User = get_user_model()
 channel_layer = get_channel_layer()
 
@@ -43,8 +45,10 @@ def send_appointment_notification(appointment_id, event_type):
         title, message = messages.get(event_type, ('Appointment Update', 'Your appointment has been updated'))
         push_notification(appt.patient.id, title, message, 'appointment', f'/appointments/{appointment_id}')
         push_notification(appt.doctor.user.id, title, message, 'appointment', f'/appointments/{appointment_id}')
-    except Exception:
-        pass
+    except Appointment.DoesNotExist:
+        logger.warning(f'send_appointment_notification: appointment {appointment_id} not found')
+    except Exception as e:
+        logger.exception(f'send_appointment_notification failed: {e}')
 
 
 @shared_task
@@ -60,5 +64,7 @@ def send_emergency_notification(emergency_id):
                 'emergency',
                 f'/emergency/{emergency_id}'
             )
-    except Exception:
-        pass
+    except EmergencyRequest.DoesNotExist:
+        logger.warning(f'send_emergency_notification: emergency {emergency_id} not found')
+    except Exception as e:
+        logger.exception(f'send_emergency_notification failed: {e}')

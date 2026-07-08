@@ -4,10 +4,11 @@ import { Link } from 'react-router-dom'
 import {
   Brain, ChevronRight, AlertTriangle, CheckCircle, Stethoscope,
   ArrowLeft, History, Search, Sparkles, Activity, Heart, Thermometer,
-  Wind, Zap, Eye, Ear, Bone, Pill, FileText, ShieldAlert, Clock, Info
+  Wind, Zap, Eye, Ear, Bone, Pill, FileText, ShieldAlert, Clock, Info,
+  Star, MapPin, CalendarPlus, Phone
 } from 'lucide-react'
 import { aiService } from '@/services'
-import { Card, Badge, MedicalDisclaimer, Spinner } from '@/components/ui'
+import { Card, Badge, MedicalDisclaimer, Spinner, Avatar } from '@/components/ui'
 import Button from '@/components/ui/Button'
 import { cn, severityConfig } from '@/utils'
 import toast from 'react-hot-toast'
@@ -128,6 +129,12 @@ export default function AIAssessment() {
   }
 
   const severity = result ? severityConfig[result.severity_level] : null
+
+  const { data: suggestedDoctorsData, isLoading: loadingDoctors } = useQuery({
+    queryKey: ['suggest-doctors', result?.suggested_specialist, result?.severity_level],
+    queryFn: () => aiService.suggestDoctors(result.suggested_specialist, result.severity_level).then(r => r.data),
+    enabled: !!result?.suggested_specialist && ['red', 'yellow'].includes(result?.severity_level),
+  })
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
@@ -379,11 +386,16 @@ export default function AIAssessment() {
                 <AlertTriangle className="w-6 h-6" />
               </div>
               <div className="flex-1">
-                <p className="font-bold text-lg">Emergency Alert</p>
-                <p className="text-red-100 text-sm mt-1">Your symptoms may require immediate medical attention. Call 911/999/112 or visit the nearest emergency room.</p>
-                <Link to="/patient/emergency" className="mt-3 inline-flex items-center gap-2 bg-white text-red-600 font-semibold text-sm px-4 py-2 rounded-xl hover:bg-red-50 transition-colors">
-                  <Zap className="w-4 h-4" /> Request Emergency Consultation
-                </Link>
+                <p className="font-bold text-lg">⚠️ Emergency — See a Doctor Immediately</p>
+                <p className="text-red-100 text-sm mt-1">Your symptoms may require urgent medical attention. Call emergency services (911/999/112) or visit the nearest ER right away.</p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <Link to="/patient/emergency" className="inline-flex items-center gap-2 bg-white text-red-600 font-semibold text-sm px-4 py-2 rounded-xl hover:bg-red-50 transition-colors">
+                    <Zap className="w-4 h-4" /> Request Emergency Consultation
+                  </Link>
+                  <a href="tel:911" className="inline-flex items-center gap-2 bg-white/20 text-white font-semibold text-sm px-4 py-2 rounded-xl hover:bg-white/30 transition-colors">
+                    <Phone className="w-4 h-4" /> Call Emergency
+                  </a>
+                </div>
               </div>
             </div>
           )}
@@ -584,6 +596,92 @@ export default function AIAssessment() {
                     )}
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* Suggested Doctors from platform */}
+          {['red', 'yellow'].includes(result.severity_level) && (
+            <div className="bg-white dark:bg-gray-900 rounded-2xl border-2 border-primary-200 dark:border-primary-800 overflow-hidden">
+              <div className={cn(
+                'px-5 py-4 flex items-center gap-3',
+                result.severity_level === 'red'
+                  ? 'bg-red-50 dark:bg-red-950 border-b border-red-100 dark:border-red-900'
+                  : 'bg-primary-50 dark:bg-primary-950 border-b border-primary-100 dark:border-primary-900'
+              )}>
+                <Stethoscope className={cn('w-5 h-5', result.severity_level === 'red' ? 'text-red-600 dark:text-red-400' : 'text-primary-600 dark:text-primary-400')} />
+                <div>
+                  <h3 className={cn('font-bold', result.severity_level === 'red' ? 'text-red-900 dark:text-red-200' : 'text-primary-900 dark:text-primary-200')}>
+                    {result.severity_level === 'red' ? '🚨 You need to see a doctor now' : '👨‍⚕️ We recommend seeing a doctor'}
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    {result.suggested_specialist
+                      ? `Suggested specialist: ${result.suggested_specialist} — book with one of our verified doctors below`
+                      : 'Book an appointment with one of our verified doctors below'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4">
+                {loadingDoctors ? (
+                  <div className="flex justify-center py-6"><Spinner /></div>
+                ) : suggestedDoctorsData?.doctors?.length > 0 ? (
+                  <div className="space-y-3">
+                    {suggestedDoctorsData.doctors.map(doctor => (
+                      <div key={doctor.id} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                        <div className="relative flex-shrink-0">
+                          <Avatar name={doctor.full_name} src={doctor.avatar} size="md" />
+                          <span className={cn(
+                            'absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-gray-800',
+                            doctor.online_status === 'available' ? 'bg-emerald-500' :
+                            doctor.online_status === 'emergency_duty' ? 'bg-red-500' :
+                            doctor.online_status === 'busy' ? 'bg-amber-500' : 'bg-gray-400'
+                          )} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">{doctor.full_name}</p>
+                          <p className="text-xs text-primary-600 dark:text-primary-400 font-medium">{doctor.specialization_name}</p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="flex items-center gap-0.5 text-xs text-gray-500">
+                              <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                              {doctor.average_rating || '0.0'}
+                            </span>
+                            {doctor.country && (
+                              <span className="flex items-center gap-0.5 text-xs text-gray-400">
+                                <MapPin className="w-3 h-3" /> {doctor.country}
+                              </span>
+                            )}
+                            <span className="text-xs text-gray-400">${doctor.consultation_fee}</span>
+                          </div>
+                        </div>
+                        <Link
+                          to={`/patient/doctors/${doctor.id}/book`}
+                          className={cn(
+                            'flex-shrink-0 flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl transition-colors',
+                            result.severity_level === 'red'
+                              ? 'bg-red-600 hover:bg-red-700 text-white'
+                              : 'bg-primary-600 hover:bg-primary-700 text-white'
+                          )}
+                        >
+                          <CalendarPlus className="w-3.5 h-3.5" /> Book
+                        </Link>
+                      </div>
+                    ))}
+                    <Link
+                      to="/patient/doctors"
+                      className="block text-center text-sm text-primary-600 dark:text-primary-400 hover:text-primary-700 font-medium pt-1"
+                    >
+                      View all doctors →
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-3">No available specialists found right now.</p>
+                    <Link to="/patient/doctors" className="btn-primary text-sm inline-flex items-center gap-2">
+                      <Stethoscope className="w-4 h-4" /> Browse All Doctors
+                    </Link>
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -60,6 +60,9 @@ class MediAITokenObtainPairSerializer(TokenObtainPairSerializer):
 
     def validate(self, attrs):
         data = super().validate(attrs)
+        # Reject disabled accounts even if token is technically valid
+        if not self.user.is_active:
+            raise serializers.ValidationError('This account has been disabled.')
         data['user'] = UserSerializer(self.user).data
         return data
 

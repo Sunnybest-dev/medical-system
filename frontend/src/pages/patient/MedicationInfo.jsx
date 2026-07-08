@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import {
   Pill, Search, AlertTriangle, CheckCircle, Info,
-  Sparkles, ShieldAlert, BookOpen, FlaskConical, ChevronDown, ChevronUp, Clock
+  Sparkles, ShieldAlert, BookOpen, FlaskConical, ChevronDown, ChevronUp, Clock, Tag, Zap
 } from 'lucide-react'
 import { aiService } from '@/services'
 import { MedicalDisclaimer, Spinner, Badge } from '@/components/ui'
@@ -16,43 +16,6 @@ const POPULAR_DRUGS = [
   'Ciprofloxacin', 'Doxycycline', 'Cetirizine', 'Loratadine',
 ]
 
-async function fetchOpenFDA(drugName) {
-  try {
-    const res = await fetch(
-      `https://api.fda.gov/drug/label.json?search=openfda.brand_name:"${encodeURIComponent(drugName)}"&limit=1`
-    )
-    if (!res.ok) throw new Error()
-    const data = await res.json()
-    const r = data.results?.[0]
-    if (!r) throw new Error()
-    return {
-      source: 'fda',
-      name: r.openfda?.brand_name?.[0] || drugName,
-      generic_name: r.openfda?.generic_name?.[0] || '',
-      drug_class: r.openfda?.pharm_class_epc?.[0] || r.openfda?.product_type?.[0] || '',
-      purpose: r.purpose?.[0] || r.indications_and_usage?.[0] || '',
-      how_it_works: r.mechanism_of_action?.[0] || '',
-      common_side_effects: r.adverse_reactions?.[0]
-        ? r.adverse_reactions[0].split(/[,;]/).slice(0, 8).map(s => s.trim()).filter(Boolean)
-        : [],
-      serious_side_effects: r.warnings?.[0]
-        ? r.warnings[0].split('.').slice(0, 4).map(s => s.trim()).filter(s => s.length > 10)
-        : [],
-      contraindications: r.contraindications?.[0]
-        ? r.contraindications[0].split('.').slice(0, 4).map(s => s.trim()).filter(s => s.length > 10)
-        : [],
-      warnings: r.boxed_warning
-        ? r.boxed_warning[0].split('.').slice(0, 3).map(s => s.trim()).filter(s => s.length > 10)
-        : [],
-      manufacturer: r.openfda?.manufacturer_name?.[0] || '',
-      route: r.openfda?.route?.[0] || '',
-      disclaimer: 'This information is sourced from the FDA drug label database. Always consult your doctor or pharmacist before taking any medication.',
-    }
-  } catch {
-    return null
-  }
-}
-
 function Section({ icon: Icon, title, children, color = 'gray', defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen)
   const colors = {
@@ -61,6 +24,7 @@ function Section({ icon: Icon, title, children, color = 'gray', defaultOpen = tr
     amber: 'text-amber-700 dark:text-amber-400',
     green: 'text-emerald-700 dark:text-emerald-400',
     blue: 'text-blue-700 dark:text-blue-400',
+    purple: 'text-purple-700 dark:text-purple-400',
   }
   return (
     <div className="border border-gray-100 dark:border-gray-800 rounded-xl overflow-hidden">
@@ -81,31 +45,22 @@ function Section({ icon: Icon, title, children, color = 'gray', defaultOpen = tr
 export default function MedicationInfo() {
   const [query, setQuery] = useState('')
   const [result, setResult] = useState(null)
-  const [dataSource, setDataSource] = useState('')
 
   const { mutate, isPending } = useMutation({
-    mutationFn: async () => {
-      // Try OpenFDA first (free, real drug data)
-      const fdaResult = await fetchOpenFDA(query)
-      if (fdaResult) {
-        setDataSource('fda')
-        return { data: fdaResult }
-      }
-      // Fallback to Gemini AI
-      setDataSource('ai')
-      return aiService.getMedicationInfo(query)
-    },
+    mutationFn: () => aiService.getMedicationInfo(query),
     onSuccess: ({ data }) => setResult(data),
     onError: () => toast.error('Failed to get medication info'),
   })
 
-  const handleSearch = (name = query) => {
+  const handleSearch = useCallback((name = query) => {
     const q = name || query
     if (!q.trim()) return toast.error('Enter a medication name')
     setQuery(q)
     setResult(null)
     setTimeout(() => mutate(), 0)
-  }
+  }, [query, mutate])
+
+  const sourceLabel = result?.source === 'fda' ? '🏛️ FDA + RxNorm' : '🤖 AI Generated'
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -117,7 +72,7 @@ export default function MedicationInfo() {
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white">Drug & Medication Info</h1>
           <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-            <Sparkles className="w-3 h-3" /> FDA database + Gemini AI
+            <Sparkles className="w-3 h-3" /> RxNorm · FDA · Gemini AI
           </p>
         </div>
       </div>
@@ -131,18 +86,14 @@ export default function MedicationInfo() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               className="input pl-9"
-              placeholder="Enter drug or medication name (e.g. Ibuprofen, Metformin...)"
+              placeholder="Enter drug or medication name (e.g. Paracetamol, Metformin...)"
               value={query}
               onChange={e => setQuery(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSearch()}
             />
           </div>
-          <Button onClick={() => handleSearch()} loading={isPending}>
-            Search
-          </Button>
+          <Button onClick={() => handleSearch()} loading={isPending}>Search</Button>
         </div>
-
-        {/* Popular drugs */}
         <div>
           <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">Popular searches:</p>
           <div className="flex flex-wrap gap-1.5">
@@ -162,15 +113,13 @@ export default function MedicationInfo() {
       {isPending && (
         <div className="flex flex-col items-center justify-center py-12 gap-3">
           <Spinner size="lg" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {dataSource === 'fda' ? 'Fetching from FDA database...' : 'Asking Gemini AI...'}
-          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">Looking up RxNorm → FDA database...</p>
         </div>
       )}
 
       {result && !result.error && (
         <div className="space-y-3">
-          {/* Drug header card */}
+          {/* Drug header */}
           <div className="bg-gradient-to-br from-primary-600 to-purple-700 rounded-2xl p-5 text-white shadow-lg shadow-primary-500/20">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -184,10 +133,9 @@ export default function MedicationInfo() {
                   )}
                 </div>
               </div>
-              <Badge className="bg-white/20 text-white border-0 flex-shrink-0">
-                {dataSource === 'fda' ? '🏛️ FDA Data' : '🤖 AI Generated'}
-              </Badge>
+              <Badge className="bg-white/20 text-white border-0 flex-shrink-0">{sourceLabel}</Badge>
             </div>
+
             <div className="flex flex-wrap gap-2 mt-4">
               {result.drug_class && (
                 <span className="bg-white/15 text-white text-xs px-3 py-1 rounded-full flex items-center gap-1">
@@ -199,17 +147,26 @@ export default function MedicationInfo() {
                   <Clock className="w-3 h-3" /> {result.route}
                 </span>
               )}
-              {result.manufacturer && (
-                <span className="bg-white/15 text-white text-xs px-3 py-1 rounded-full">
-                  {result.manufacturer}
-                </span>
-              )}
             </div>
+
+            {/* Brand names from RxNorm */}
+            {result.brand_names?.length > 0 && (
+              <div className="mt-3">
+                <p className="text-white/70 text-xs mb-1.5 flex items-center gap-1">
+                  <Tag className="w-3 h-3" /> Brand names
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {result.brand_names.map((b, i) => (
+                    <span key={i} className="bg-white/15 text-white text-xs px-2.5 py-0.5 rounded-full">{b}</span>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Purpose */}
           {result.purpose && (
-            <Section icon={BookOpen} title="Purpose / Uses" color="blue" defaultOpen={true}>
+            <Section icon={BookOpen} title="Purpose / Uses" color="blue">
               <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{result.purpose}</p>
             </Section>
           )}
@@ -221,9 +178,16 @@ export default function MedicationInfo() {
             </Section>
           )}
 
+          {/* How to take */}
+          {result.how_to_take && (
+            <Section icon={Clock} title="Dosage & Administration" color="green" defaultOpen={false}>
+              <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{result.how_to_take}</p>
+            </Section>
+          )}
+
           {/* Common side effects */}
           {result.common_side_effects?.length > 0 && (
-            <Section icon={Info} title="Common Side Effects" color="amber" defaultOpen={true}>
+            <Section icon={Info} title="Common Side Effects" color="amber">
               <div className="flex flex-wrap gap-2">
                 {result.common_side_effects.map((s, i) => (
                   <span key={i} className="bg-amber-50 dark:bg-amber-950 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-xs px-2.5 py-1 rounded-full">
@@ -236,7 +200,7 @@ export default function MedicationInfo() {
 
           {/* Serious side effects */}
           {result.serious_side_effects?.length > 0 && (
-            <Section icon={AlertTriangle} title="Serious Side Effects" color="red" defaultOpen={true}>
+            <Section icon={AlertTriangle} title="Serious Side Effects" color="red">
               <ul className="space-y-1.5">
                 {result.serious_side_effects.map((s, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm text-red-700 dark:text-red-400">
@@ -262,11 +226,29 @@ export default function MedicationInfo() {
 
           {/* Warnings */}
           {result.warnings?.length > 0 && (
-            <Section icon={ShieldAlert} title="Warnings" color="amber" defaultOpen={true}>
+            <Section icon={ShieldAlert} title="Warnings" color="amber">
               <ul className="space-y-1.5">
                 {result.warnings.map((w, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm text-amber-700 dark:text-amber-400">
                     <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" /> {w}
+                  </li>
+                ))}
+              </ul>
+            </Section>
+          )}
+
+          {/* Drug interactions */}
+          {result.drug_interactions?.length > 0 && (
+            <Section icon={Zap} title="Drug Interactions" color="purple" defaultOpen={false}>
+              <ul className="space-y-2">
+                {result.drug_interactions.map((interaction, i) => (
+                  <li key={i} className="text-sm text-gray-700 dark:text-gray-300 border-l-2 border-purple-400 pl-3">
+                    {interaction.severity && (
+                      <span className="text-xs font-semibold text-purple-600 dark:text-purple-400 uppercase mr-2">
+                        {interaction.severity}
+                      </span>
+                    )}
+                    {interaction.description}
                   </li>
                 ))}
               </ul>

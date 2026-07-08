@@ -73,7 +73,7 @@ class AppointmentStatusUpdateView(APIView):
 
 
 class JitsiTokenView(APIView):
-    """Generate Jitsi Meet room info for video consultation"""
+    """Generate a signed Jitsi JWT for secure video consultation"""
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, pk):
@@ -87,22 +87,72 @@ class JitsiTokenView(APIView):
         if request.user != appointment.patient and request.user != appointment.doctor.user:
             return Response({'error': 'Access denied.'}, status=status.HTTP_403_FORBIDDEN)
 
-        if appointment.status not in ['confirmed', 'pending']:
-            return Response({'error': 'Appointment is not active.'}, status=status.HTTP_400_BAD_REQUEST)
+        if appointment.status != 'confirmed':
+            return Response(
+                {'error': 'Appointment must be confirmed before joining the video call.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Allow joining within 15 minutes before and 60 minutes after scheduled time
+        from datetime import timedelta
+        now = timezone.now()
+        window_start = appointment.scheduled_at - timedelta(minutes=15)
+        window_end = appointment.scheduled_at + timedelta(minutes=appointment.duration_minutes + 60)
+        if not (window_start <= now <= window_end):
+            return Response(
+                {'error': f'Video call is only available from 15 minutes before the scheduled time ({appointment.scheduled_at.strftime("%Y-%m-%d %H:%M UTC")}).'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         # Ensure room name exists
         if not appointment.jitsi_room_name:
             appointment.jitsi_room_name = f'mediai-{appointment.id}'
             appointment.save(update_fields=['jitsi_room_name'])
 
+        app_id = settings.JITSI_APP_ID
+        secret = settings.JITSI_SECRET
+        is_doctor = request.user == appointment.doctor.user
+
+        # Build JWT — fall back to no token if secret not configured
+        token = None
+        if secret:
+            import jwt as pyjwt
+            from datetime import timedelta
+            now = timezone.now()
+            payload = {
+                'iss': app_id,
+                'sub': 'meet.jit.si',
+                'aud': 'jitsi',
+                'iat': int(now.timestamp()),
+                'exp': int((now + timedelta(hours=2)).timestamp()),
+                'room': appointment.jitsi_room_name,
+                'context': {
+                    'user': {
+                        'id': str(request.user.id),
+                        'name': request.user.full_name,
+                        'email': request.user.email,
+                        'avatar': getattr(request.user, 'avatar', '') or '',
+                        'moderator': is_doctor,
+                    },
+                    'features': {
+                        'livestreaming': False,
+                        'recording': False,
+                        'outbound-call': False,
+                    },
+                },
+            }
+            token = pyjwt.encode(payload, secret, algorithm='HS256')
+
         return Response({
             'room_name': appointment.jitsi_room_name,
             'domain': 'meet.jit.si',
+            'token': token,
             'user_info': {
                 'displayName': request.user.full_name,
                 'email': request.user.email,
-                'avatar': getattr(request.user, 'avatar', ''),
-            }
+                'avatar': getattr(request.user, 'avatar', '') or '',
+                'moderator': is_doctor,
+            },
         })
 
 

@@ -8,4 +8,5 @@ urlpatterns = [
     path('assessments/', views.AssessmentHistoryView.as_view(), name='assessment-history'),
     path('assessments/<uuid:pk>/', views.AssessmentDetailView.as_view(), name='assessment-detail'),
     path('medication-info/', views.MedicationInfoView.as_view(), name='medication-info'),
+    path('suggest-doctors/', views.SuggestDoctorsView.as_view(), name='suggest-doctors'),
 ]

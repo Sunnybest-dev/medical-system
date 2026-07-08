@@ -32,6 +32,7 @@ export default function VideoConsultation() {
       try {
         const api = new window.JitsiMeetExternalAPI(jitsiData.domain || 'meet.jit.si', {
           roomName: jitsiData.room_name,
+          jwt: jitsiData.token || undefined,
           parentNode: jitsiRef.current,
           width: '100%',
           height: '100%',
@@ -45,12 +46,13 @@ export default function VideoConsultation() {
             enableWelcomePage: false,
             prejoinPageEnabled: false,
             disableDeepLinking: true,
-          },
-          interfaceConfigOverwrite: {
-            TOOLBAR_BUTTONS: ['microphone', 'camera', 'chat', 'raisehand', 'tileview', 'hangup', 'fullscreen'],
-            SHOW_JITSI_WATERMARK: false,
-            SHOW_BRAND_WATERMARK: false,
-            DEFAULT_BACKGROUND: '#1a1a2e',
+            toolbarButtons: [
+              'microphone', 'camera', 'chat', 'raisehand',
+              'tileview', 'hangup', 'fullscreen', 'settings',
+            ],
+            hideConferenceSubject: true,
+            hideConferenceTimer: false,
+            disableInviteFunctions: true,
           },
         })
         apiRef.current = api

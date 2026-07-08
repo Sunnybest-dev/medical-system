@@ -23,7 +23,16 @@ class AppointmentCreateSerializer(serializers.ModelSerializer):
     def validate_doctor(self, doctor):
         if not doctor.is_approved:
             raise serializers.ValidationError('This doctor is not available for consultations.')
+        # Block booking if doctor has not completed their profile
+        if not doctor.specialization or not doctor.consultation_fee or doctor.consultation_fee <= 0:
+            raise serializers.ValidationError('This doctor has not completed their profile yet.')
         return doctor
+
+    def validate_scheduled_at(self, value):
+        from django.utils import timezone
+        if value <= timezone.now():
+            raise serializers.ValidationError('Appointment must be scheduled in the future.')
+        return value
 
 
 class ConsultationNoteSerializer(serializers.ModelSerializer):

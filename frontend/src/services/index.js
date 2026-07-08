@@ -69,6 +69,7 @@ export const aiService = {
   getAssessmentHistory: () => api.get('/ai/assessments/'),
   getAssessmentDetail: (id) => api.get(`/ai/assessments/${id}/`),
   getMedicationInfo: (medication_name) => api.post('/ai/medication-info/', { medication_name }),
+  suggestDoctors: (specialist, severity) => api.post('/ai/suggest-doctors/', { specialist, severity }),
 }
 
 // Messaging

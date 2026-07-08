@@ -58,10 +58,11 @@ class PerformAssessmentView(APIView):
         patient_info = {}
         try:
             profile = PatientProfile.objects.get(user=request.user)
-            from datetime import date
+            from django.utils import timezone
             age = None
             if request.user.date_of_birth:
-                age = (date.today() - request.user.date_of_birth).days // 365
+                today = timezone.now().date()
+                age = (today - request.user.date_of_birth).days // 365
             patient_info = {
                 'age': age,
                 'gender': request.user.gender,
@@ -124,3 +125,49 @@ class MedicationInfoView(APIView):
         service = HealthAssessmentService()
         info = service.get_medication_info(serializer.validated_data['medication_name'])
         return Response(info)
+
+
+class SuggestDoctorsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from apps.doctors.models import DoctorProfile
+        from apps.doctors.serializers import DoctorListSerializer
+
+        specialist = request.data.get('specialist', '').strip()
+        severity = request.data.get('severity', 'yellow')
+
+        if not specialist:
+            return Response({'doctors': []})
+
+        # Build keyword list from specialist string e.g. "General Practitioner" -> ['general', 'practitioner']
+        keywords = [w.lower() for w in specialist.replace('-', ' ').split() if len(w) > 2]
+
+        qs = DoctorProfile.objects.filter(
+            verification_status=DoctorProfile.VerificationStatus.APPROVED
+        ).select_related('user', 'specialization')
+
+        # For emergencies prioritise doctors on emergency duty or available
+        if severity == 'red':
+            qs = qs.filter(
+                online_status__in=[
+                    DoctorProfile.OnlineStatus.EMERGENCY_DUTY,
+                    DoctorProfile.OnlineStatus.AVAILABLE,
+                ]
+            )
+        else:
+            qs = qs.exclude(online_status=DoctorProfile.OnlineStatus.OFFLINE)
+
+        # Filter by specialization name keywords
+        from django.db.models import Q
+        spec_filter = Q()
+        for kw in keywords:
+            spec_filter |= Q(specialization__name__icontains=kw)
+        matched = qs.filter(spec_filter).order_by('-online_status', '-average_rating')[:5]
+
+        # Fallback: return top-rated available doctors if no specialization match
+        if not matched.exists():
+            matched = qs.order_by('-average_rating')[:5]
+
+        serializer = DoctorListSerializer(matched, many=True)
+        return Response({'doctors': serializer.data, 'specialist': specialist})

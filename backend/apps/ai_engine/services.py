@@ -8,6 +8,78 @@ import requests
 logger = logging.getLogger(__name__)
 
 
+class RxNormService:
+    BASE = 'https://rxnav.nlm.nih.gov/REST'
+
+    def normalize(self, drug_name: str) -> dict:
+        """Return rxcui, generic name, and brand names for a drug."""
+        try:
+            res = requests.get(
+                f'{self.BASE}/drugs.json',
+                params={'name': drug_name},
+                timeout=5,
+            )
+            if not res.ok:
+                return {}
+            data = res.json()
+            concept_group = data.get('drugGroup', {}).get('conceptGroup', [])
+            rxcui = None
+            generic_name = None
+            brand_names = []
+
+            for group in concept_group:
+                props = group.get('conceptProperties', [])
+                tty = group.get('tty', '')
+                for prop in props:
+                    if tty == 'IN' and not rxcui:
+                        rxcui = prop.get('rxcui')
+                        generic_name = prop.get('name')
+                    elif tty == 'BN':
+                        brand_names.append(prop.get('name', ''))
+
+            if not rxcui:
+                for group in concept_group:
+                    props = group.get('conceptProperties', [])
+                    if props:
+                        rxcui = props[0].get('rxcui')
+                        generic_name = props[0].get('name')
+                        break
+
+            return {
+                'rxcui': rxcui,
+                'generic_name': generic_name or drug_name,
+                'brand_names': list(dict.fromkeys(brand_names))[:6],
+            }
+        except Exception as e:
+            logger.warning(f'RxNorm normalize failed for "{drug_name}": {e}')
+            return {}
+
+    def get_interactions(self, rxcuis: list) -> list:
+        """Check drug-drug interactions for a list of rxcuis."""
+        if len(rxcuis) < 2:
+            return []
+        try:
+            res = requests.get(
+                f'{self.BASE}/interaction/list.json',
+                params={'rxcuis': '+'.join(rxcuis)},
+                timeout=5,
+            )
+            if not res.ok:
+                return []
+            data = res.json()
+            interactions = []
+            for pair in data.get('fullInteractionTypeGroup', []):
+                for interaction_type in pair.get('fullInteractionType', []):
+                    desc = interaction_type.get('interactionPair', [{}])[0].get('description', '')
+                    severity = interaction_type.get('interactionPair', [{}])[0].get('severity', '')
+                    if desc:
+                        interactions.append({'description': desc, 'severity': severity})
+            return interactions[:5]
+        except Exception as e:
+            logger.warning(f'RxNorm interactions failed: {e}')
+            return []
+
+
 class GeminiProvider:
     def __init__(self):
         self.available = False
@@ -18,7 +90,11 @@ class GeminiProvider:
         try:
             genai.configure(api_key=api_key)
             self.model = genai.GenerativeModel(
-                getattr(settings, 'GEMINI_MODEL', 'gemini-1.5-flash')
+                getattr(settings, 'GEMINI_MODEL', 'gemini-1.5-flash'),
+                generation_config=genai.GenerationConfig(
+                    max_output_tokens=1024,
+                    temperature=0.3,
+                )
             )
             self.available = True
         except Exception as e:
@@ -100,6 +176,7 @@ class HealthAssessmentService:
     def __init__(self):
         self.provider = GeminiProvider()
         self.fda = OpenFDAService()
+        self.rxnorm = RxNormService()
 
     def get_followup_questions(self, symptoms: list) -> list:
         default_questions = [
@@ -213,17 +290,31 @@ IMPORTANT RULES:
         return self._fallback_assessment(symptoms)
 
     def _enrich_medications(self, medications: list) -> list:
-        """Enrich Gemini-suggested drug names with real FDA data, falling back to Gemini fields."""
+        """RxNorm normalize → OpenFDA enrich → collect interactions."""
         enriched = []
+        rxcuis = []
+
         for med in medications:
             name = med.get('name', '')
-            fda_data = self.fda.fetch(name)
+
+            # Step 1: RxNorm — normalize name, get generic + brand names
+            rx = self.rxnorm.normalize(name)
+            normalized_name = rx.get('generic_name') or name
+            rxcui = rx.get('rxcui')
+            if rxcui:
+                rxcuis.append(rxcui)
+
+            # Step 2: OpenFDA — use normalized generic name for better hit rate
+            fda_data = self.fda.fetch(normalized_name) or self.fda.fetch(name)
+
             if fda_data:
                 enriched.append({
                     **med,
                     'source': 'fda',
-                    'name': fda_data.get('name') or name,
-                    'generic_name': fda_data.get('generic_name', ''),
+                    'name': fda_data.get('name') or normalized_name,
+                    'generic_name': rx.get('generic_name') or fda_data.get('generic_name', ''),
+                    'brand_names': rx.get('brand_names', []),
+                    'rxcui': rxcui,
                     'drug_class': fda_data.get('drug_class', ''),
                     'how_to_take': fda_data.get('how_to_take') or med.get('how_to_take', ''),
                     'common_side_effects': fda_data.get('common_side_effects', []),
@@ -233,8 +324,20 @@ IMPORTANT RULES:
                     'warnings': fda_data.get('warnings', []),
                 })
             else:
-                # FDA had nothing — keep Gemini's own fields as-is
-                enriched.append({**med, 'source': 'ai'})
+                enriched.append({
+                    **med,
+                    'source': 'ai',
+                    'generic_name': rx.get('generic_name', ''),
+                    'brand_names': rx.get('brand_names', []),
+                    'rxcui': rxcui,
+                })
+
+        # Step 3: RxNorm interactions across all suggested drugs
+        interactions = self.rxnorm.get_interactions(rxcuis)
+        if interactions:
+            for item in enriched:
+                item['drug_interactions'] = interactions
+
         return enriched
 
     def _fallback_assessment(self, symptoms: list) -> dict:
@@ -252,32 +355,80 @@ IMPORTANT RULES:
         }
 
     def get_medication_info(self, medication_name: str) -> dict:
+        """RxNorm normalize → OpenFDA → Gemini fallback for mechanism/purpose."""
+        # Step 1: RxNorm
+        rx = self.rxnorm.normalize(medication_name)
+        normalized_name = rx.get('generic_name') or medication_name
+        rxcui = rx.get('rxcui')
+
+        # Step 2: OpenFDA with normalized name
+        fda_data = self.fda.fetch(normalized_name) or self.fda.fetch(medication_name)
+
+        # Step 3: Gemini for purpose + mechanism (lightweight prompt)
+        ai_info = {}
+        if self.provider.available:
+            prompt = f"""For the medication "{normalized_name}", return ONLY this JSON:
+{{
+  "purpose": "What it is used for (1-2 sentences)",
+  "how_it_works": "Mechanism of action (1-2 sentences)"
+}}
+No dosage. No prescribing. Information only."""
+            response = self.provider.generate(prompt)
+            try:
+                match = re.search(r'\{.*\}', response, re.DOTALL)
+                if match:
+                    ai_info = json.loads(match.group())
+            except (json.JSONDecodeError, AttributeError):
+                pass
+
+        if fda_data:
+            return {
+                'source': 'fda',
+                'name': fda_data.get('name') or normalized_name,
+                'generic_name': rx.get('generic_name') or fda_data.get('generic_name', ''),
+                'brand_names': rx.get('brand_names', []),
+                'rxcui': rxcui,
+                'drug_class': fda_data.get('drug_class', ''),
+                'purpose': ai_info.get('purpose') or fda_data.get('purpose', ''),
+                'how_it_works': ai_info.get('how_it_works') or fda_data.get('how_it_works', ''),
+                'how_to_take': fda_data.get('how_to_take', ''),
+                'common_side_effects': fda_data.get('common_side_effects', []),
+                'serious_side_effects': fda_data.get('serious_side_effects', []),
+                'contraindications': fda_data.get('contraindications', []),
+                'overdose_warning': fda_data.get('overdose_warning', ''),
+                'warnings': fda_data.get('warnings', []),
+                'disclaimer': 'This information is sourced from FDA and RxNorm databases. Always consult your doctor or pharmacist before taking any medication.',
+            }
+
+        # Full Gemini fallback if FDA has nothing
         if not self.provider.available:
-            return {'error': 'AI service is currently unavailable. Please consult a pharmacist for medication information.'}
+            return {'error': 'AI service unavailable. Please consult a pharmacist.'}
 
         prompt = f"""Provide factual information about the medication: {medication_name}
 
-Return ONLY this JSON format:
+Return ONLY this JSON:
 {{
   "name": "Medication name",
-  "generic_name": "Generic name if applicable",
+  "generic_name": "Generic name",
   "drug_class": "Drug classification",
-  "purpose": "What it is commonly used for",
-  "how_it_works": "Brief mechanism",
-  "common_side_effects": ["side effect 1", "side effect 2"],
+  "purpose": "What it is used for",
+  "how_it_works": "Mechanism of action",
+  "common_side_effects": ["effect 1", "effect 2"],
   "serious_side_effects": ["serious effect 1"],
   "contraindications": ["condition 1"],
   "warnings": ["warning 1"],
   "disclaimer": "Always consult your doctor or pharmacist before taking any medication."
 }}
-
-IMPORTANT: Do NOT recommend dosages. Do NOT prescribe. Information only.
-"""
+No dosage. No prescribing. Information only."""
         response = self.provider.generate(prompt)
         try:
-            json_match = re.search(r'\{.*\}', response, re.DOTALL)
-            if json_match:
-                return json.loads(json_match.group())
+            match = re.search(r'\{.*\}', response, re.DOTALL)
+            if match:
+                result = json.loads(match.group())
+                result['source'] = 'ai'
+                result['brand_names'] = rx.get('brand_names', [])
+                result['rxcui'] = rxcui
+                return result
         except (json.JSONDecodeError, AttributeError):
             pass
         return {'error': 'Unable to retrieve medication information. Please consult a pharmacist.'}
