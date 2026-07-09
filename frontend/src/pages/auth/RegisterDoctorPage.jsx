@@ -49,7 +49,7 @@ export default function RegisterDoctorPage() {
             <span className="text-white text-2xl font-bold">M</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900">Doctor Registration</h1>
-          <p className="text-gray-500 mt-1">Join MediAI as a verified healthcare provider</p>
+          <p className="text-gray-500 mt-1">Join Mxta as a verified healthcare provider</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
