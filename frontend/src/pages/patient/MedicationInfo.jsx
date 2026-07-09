@@ -42,6 +42,18 @@ function Section({ icon: Icon, title, children, color = 'gray', defaultOpen = tr
   )
 }
 
+function DrugButton({ drug, onSearch }) {
+  const handleClick = useCallback(() => onSearch(drug), [drug, onSearch])
+  return (
+    <button
+      onClick={handleClick}
+      className="text-xs px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-primary-100 dark:hover:bg-primary-950 hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
+    >
+      {drug}
+    </button>
+  )
+}
+
 export default function MedicationInfo() {
   const [query, setQuery] = useState('')
   const [result, setResult] = useState(null)
@@ -98,13 +110,7 @@ export default function MedicationInfo() {
           <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">Popular searches:</p>
           <div className="flex flex-wrap gap-1.5">
             {POPULAR_DRUGS.map(drug => (
-              <button
-                key={drug}
-                onClick={() => handleSearch(drug)}
-                className="text-xs px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-primary-100 dark:hover:bg-primary-950 hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
-              >
-                {drug}
-              </button>
+              <DrugButton key={drug} drug={drug} onSearch={handleSearch} />
             ))}
           </div>
         </div>

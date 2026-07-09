@@ -25,7 +25,6 @@ class AuthRateThrottle(AnonRateThrottle):
 
 class AdminRegisterView(generics.CreateAPIView):
     permission_classes = [permissions.AllowAny]
-    throttle_classes = [AuthRateThrottle]
 
     def create(self, request, *args, **kwargs):
         secret = request.data.get('admin_secret', '')
@@ -181,11 +180,17 @@ class ResetPasswordView(APIView):
 
 class ChangePasswordView(APIView):
     def post(self, request):
+        from django.contrib.auth.password_validation import validate_password
+        from django.core.exceptions import ValidationError
         serializer = ChangePasswordSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = request.user
         if not user.check_password(serializer.validated_data['old_password']):
             return Response({'error': 'Incorrect current password.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            validate_password(serializer.validated_data['new_password'], user)
+        except ValidationError as e:
+            return Response({'error': list(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
         user.set_password(serializer.validated_data['new_password'])
         user.save()
         return Response({'message': 'Password changed successfully.'})

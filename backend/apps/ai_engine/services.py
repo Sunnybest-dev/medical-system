@@ -91,20 +91,23 @@ class GeminiProvider:
             genai.configure(api_key=api_key)
             self.model = genai.GenerativeModel(
                 getattr(settings, 'GEMINI_MODEL', 'gemini-1.5-flash'),
-                generation_config=genai.GenerationConfig(
-                    max_output_tokens=1024,
-                    temperature=0.3,
-                )
             )
             self.available = True
         except Exception as e:
             logger.error(f'Failed to initialise Gemini: {e}')
 
-    def generate(self, prompt: str) -> str:
+    def generate(self, prompt: str, max_output_tokens: int = 1024) -> str:
         if not self.available:
             return ''
         try:
-            response = self.model.generate_content(prompt)
+            response = self.model.generate_content(
+                prompt,
+                generation_config=genai.GenerationConfig(
+                    max_output_tokens=max_output_tokens,
+                    temperature=0.3,
+                ),
+                request_options={'timeout': 30},
+            )
             return response.text
         except Exception as e:
             logger.error(f'Gemini generate error: {e}')
@@ -204,7 +207,7 @@ Examples for fever: "What is your temperature reading?", "Do you have chills or 
 Return ONLY a JSON array of 5 question strings, no explanation:
 ["question 1", "question 2", "question 3", "question 4", "question 5"]
 """
-        response = self.provider.generate(prompt)
+        response = self.provider.generate(prompt, max_output_tokens=512)
         try:
             json_match = re.search(r'\[.*\]', response, re.DOTALL)
             if json_match:
@@ -271,7 +274,7 @@ IMPORTANT RULES:
 - NEVER use the word "diagnosis" in possible_conditions. Use "possible conditions".
 - Always recommend consulting a doctor before taking any medication.
 """
-        response = self.provider.generate(prompt)
+        response = self.provider.generate(prompt, max_output_tokens=2048)
         try:
             json_match = re.search(r'\{.*\}', response, re.DOTALL)
             if json_match:
@@ -297,14 +300,12 @@ IMPORTANT RULES:
         for med in medications:
             name = med.get('name', '')
 
-            # Step 1: RxNorm — normalize name, get generic + brand names
             rx = self.rxnorm.normalize(name)
             normalized_name = rx.get('generic_name') or name
             rxcui = rx.get('rxcui')
             if rxcui:
                 rxcuis.append(rxcui)
 
-            # Step 2: OpenFDA — use normalized generic name for better hit rate
             fda_data = self.fda.fetch(normalized_name) or self.fda.fetch(name)
 
             if fda_data:
@@ -312,7 +313,7 @@ IMPORTANT RULES:
                     **med,
                     'source': 'fda',
                     'name': fda_data.get('name') or normalized_name,
-                    'generic_name': rx.get('generic_name') or fda_data.get('generic_name', ''),
+                    'generic_name': rx.get('generic_name', '') or fda_data.get('generic_name', ''),
                     'brand_names': rx.get('brand_names', []),
                     'rxcui': rxcui,
                     'drug_class': fda_data.get('drug_class', ''),
@@ -332,7 +333,6 @@ IMPORTANT RULES:
                     'rxcui': rxcui,
                 })
 
-        # Step 3: RxNorm interactions across all suggested drugs
         interactions = self.rxnorm.get_interactions(rxcuis)
         if interactions:
             for item in enriched:
@@ -356,15 +356,12 @@ IMPORTANT RULES:
 
     def get_medication_info(self, medication_name: str) -> dict:
         """RxNorm normalize → OpenFDA → Gemini fallback for mechanism/purpose."""
-        # Step 1: RxNorm
         rx = self.rxnorm.normalize(medication_name)
         normalized_name = rx.get('generic_name') or medication_name
         rxcui = rx.get('rxcui')
 
-        # Step 2: OpenFDA with normalized name
         fda_data = self.fda.fetch(normalized_name) or self.fda.fetch(medication_name)
 
-        # Step 3: Gemini for purpose + mechanism (lightweight prompt)
         ai_info = {}
         if self.provider.available:
             prompt = f"""For the medication "{normalized_name}", return ONLY this JSON:
@@ -373,7 +370,7 @@ IMPORTANT RULES:
   "how_it_works": "Mechanism of action (1-2 sentences)"
 }}
 No dosage. No prescribing. Information only."""
-            response = self.provider.generate(prompt)
+            response = self.provider.generate(prompt, max_output_tokens=256)
             try:
                 match = re.search(r'\{.*\}', response, re.DOTALL)
                 if match:
@@ -385,12 +382,12 @@ No dosage. No prescribing. Information only."""
             return {
                 'source': 'fda',
                 'name': fda_data.get('name') or normalized_name,
-                'generic_name': rx.get('generic_name') or fda_data.get('generic_name', ''),
+                'generic_name': rx.get('generic_name', '') or fda_data.get('generic_name', ''),
                 'brand_names': rx.get('brand_names', []),
                 'rxcui': rxcui,
                 'drug_class': fda_data.get('drug_class', ''),
-                'purpose': ai_info.get('purpose') or fda_data.get('purpose', ''),
-                'how_it_works': ai_info.get('how_it_works') or fda_data.get('how_it_works', ''),
+                'purpose': ai_info.get('purpose', '') or fda_data.get('purpose', ''),
+                'how_it_works': ai_info.get('how_it_works', '') or fda_data.get('how_it_works', ''),
                 'how_to_take': fda_data.get('how_to_take', ''),
                 'common_side_effects': fda_data.get('common_side_effects', []),
                 'serious_side_effects': fda_data.get('serious_side_effects', []),
@@ -400,7 +397,6 @@ No dosage. No prescribing. Information only."""
                 'disclaimer': 'This information is sourced from FDA and RxNorm databases. Always consult your doctor or pharmacist before taking any medication.',
             }
 
-        # Full Gemini fallback if FDA has nothing
         if not self.provider.available:
             return {'error': 'AI service unavailable. Please consult a pharmacist.'}
 
@@ -420,7 +416,7 @@ Return ONLY this JSON:
   "disclaimer": "Always consult your doctor or pharmacist before taking any medication."
 }}
 No dosage. No prescribing. Information only."""
-        response = self.provider.generate(prompt)
+        response = self.provider.generate(prompt, max_output_tokens=1024)
         try:
             match = re.search(r'\{.*\}', response, re.DOTALL)
             if match:

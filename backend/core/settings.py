@@ -255,5 +255,5 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 JITSI_APP_ID = config('JITSI_APP_ID', default='mediai')
 JITSI_SECRET = config('JITSI_SECRET', default='')
-ADMIN_SECRET_KEY = config('ADMIN_SECRET_KEY', default='mediai-admin-secret-2024')
+ADMIN_SECRET_KEY = config('ADMIN_SECRET_KEY')
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')

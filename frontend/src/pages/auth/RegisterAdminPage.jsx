@@ -39,23 +39,31 @@ export default function RegisterAdminPage() {
       navigate('/admin')
     },
     onError: (err) => {
+      if (!err.response) {
+        toast.error('Cannot reach server. It may be starting up — wait 30 seconds and try again.')
+        return
+      }
       const msg = err.response?.data
+      if (err.response?.status === 429) {
+        toast.error('Too many attempts. Please wait a minute and try again.')
+        return
+      }
       toast.error(typeof msg === 'object' ? Object.values(msg).flat()[0] : 'Registration failed')
     },
   })
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-primary-950 to-gray-900 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <Logo size="lg" />
-          <div className="mt-4 inline-flex items-center gap-2 bg-primary-900/50 border border-primary-700 text-primary-300 text-sm px-4 py-1.5 rounded-full">
+          <div className="mt-4 inline-flex items-center gap-2 bg-primary-50 border border-primary-200 text-primary-700 text-sm px-4 py-1.5 rounded-full">
             <Shield className="w-4 h-4" /> Admin Registration
           </div>
         </div>
 
-        <div className="bg-gray-900 border border-gray-800 rounded-2xl p-8 shadow-2xl">
-          <h2 className="text-xl font-bold text-white mb-6">Create Admin Account</h2>
+        <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
+          <h2 className="text-xl font-bold text-gray-900 mb-6">Create Admin Account</h2>
 
           <form onSubmit={handleSubmit(mutate)} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -75,7 +83,7 @@ export default function RegisterAdminPage() {
                 error={errors.admin_secret?.message}
                 {...register('admin_secret')}
               />
-              <p className="text-xs text-gray-500 mt-1">Contact your system administrator for the secret key.</p>
+              <p className="text-xs text-gray-400 mt-1">Contact your system administrator for the secret key.</p>
             </div>
 
             <Button type="submit" loading={isPending} className="w-full" size="lg">
@@ -85,7 +93,7 @@ export default function RegisterAdminPage() {
 
           <p className="text-center text-sm text-gray-500 mt-4">
             Already have an account?{' '}
-            <Link to="/login" className="text-primary-400 font-medium hover:underline">Sign in</Link>
+            <Link to="/login" className="text-primary-600 font-medium hover:underline">Sign in</Link>
           </p>
         </div>
       </div>

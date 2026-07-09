@@ -30,19 +30,19 @@ export default function AdminLayout() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="flex h-screen bg-gray-50">
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/60 z-20 lg:hidden" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 bg-black/40 z-20 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
       <aside className={cn(
         'fixed lg:static inset-y-0 left-0 z-30 w-64 flex flex-col transition-transform duration-200',
-        'bg-gray-950 dark:bg-gray-900 border-r border-gray-800',
+        'bg-white border-r border-gray-200',
         sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
       )}>
-        <div className="p-5 border-b border-gray-800 flex items-center justify-between">
+        <div className="p-5 border-b border-gray-100 flex items-center justify-between">
           <Logo subtitle="Admin Panel" />
-          <button className="lg:hidden text-gray-400 hover:text-gray-200" onClick={() => setSidebarOpen(false)}>
+          <button className="lg:hidden text-gray-400 hover:text-gray-600" onClick={() => setSidebarOpen(false)}>
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -55,7 +55,7 @@ export default function AdminLayout() {
                 'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all',
                 isActive
                   ? 'bg-primary-600 text-white'
-                  : 'text-gray-400 hover:bg-gray-800 hover:text-white'
+                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
               )}
               onClick={() => setSidebarOpen(false)}
             >
@@ -65,16 +65,16 @@ export default function AdminLayout() {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-gray-800">
+        <div className="p-4 border-t border-gray-100">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-primary-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
               {user?.first_name?.[0]}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">{user?.first_name} {user?.last_name}</p>
+              <p className="text-sm font-medium text-gray-900 truncate">{user?.first_name} {user?.last_name}</p>
               <p className="text-xs text-gray-400">Administrator</p>
             </div>
-            <button onClick={handleLogout} className="text-gray-400 hover:text-white transition-colors">
+            <button onClick={handleLogout} className="text-gray-400 hover:text-gray-600 transition-colors">
               <LogOut className="w-4 h-4" />
             </button>
           </div>
@@ -82,12 +82,12 @@ export default function AdminLayout() {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 px-4 py-3 flex items-center justify-between lg:px-6">
+        <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between lg:px-6">
           <div className="flex items-center gap-3">
             <button className="lg:hidden" onClick={() => setSidebarOpen(true)}>
-              <Menu className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+              <Menu className="w-5 h-5 text-gray-600" />
             </button>
-            <h2 className="font-semibold text-gray-900 dark:text-gray-100">Admin Dashboard</h2>
+            <h2 className="font-semibold text-gray-900">Admin Dashboard</h2>
           </div>
           <DarkModeToggle dark={dark} setDark={setDark} />
         </header>
