@@ -16,7 +16,7 @@ export const useAuthStore = create(
 
       logout: () => {
         set({ user: null, tokens: null, isAuthenticated: false })
-        localStorage.removeItem('mediai-auth')
+        localStorage.removeItem('mxta-auth')
       },
 
       getAccessToken: () => get().tokens?.access,
@@ -24,7 +24,7 @@ export const useAuthStore = create(
       setTokens: (tokens) => set((state) => ({ tokens: { ...state.tokens, ...tokens } })),
     }),
     {
-      name: 'mediai-auth',
+      name: 'mxta-auth',
       partialize: (state) => ({ user: state.user, tokens: state.tokens, isAuthenticated: state.isAuthenticated }),
     }
   )
