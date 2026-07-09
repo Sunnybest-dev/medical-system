@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
+import { useEffect } from 'react'
 
 // Auth Pages
 import LoginPage from '@/pages/auth/LoginPage'
@@ -58,6 +59,13 @@ function ProtectedRoute({ children, allowedRoles }) {
 }
 
 export default function App() {
+  useEffect(() => {
+    const ping = () => fetch('https://medical-system-7381.onrender.com/api/auth/login/', { method: 'HEAD' }).catch(() => {})
+    ping()
+    const interval = setInterval(ping, 10 * 60 * 1000)
+    return () => clearInterval(interval)
+  }, [])
+
   return (
     <BrowserRouter>
       <Routes>
