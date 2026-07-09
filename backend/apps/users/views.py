@@ -64,7 +64,10 @@ class PatientRegisterView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         token = EmailVerificationToken.objects.create(user=user)
-        send_verification_email.delay(user.id, str(token.token))
+        try:
+            send_verification_email(user.id, str(token.token))
+        except Exception:
+            pass
         refresh = RefreshToken.for_user(user)
         return Response({
             'user': UserSerializer(user).data,
@@ -83,7 +86,10 @@ class DoctorRegisterView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         token = EmailVerificationToken.objects.create(user=user)
-        send_verification_email.delay(user.id, str(token.token))
+        try:
+            send_verification_email(user.id, str(token.token))
+        except Exception:
+            pass
         refresh = RefreshToken.for_user(user)
         return Response({
             'user': UserSerializer(user).data,
@@ -143,7 +149,10 @@ class ForgotPasswordView(APIView):
         try:
             user = User.objects.get(email=email)
             token = PasswordResetToken.objects.create(user=user)
-            send_password_reset_email.delay(user.id, str(token.token))
+            try:
+                send_password_reset_email(user.id, str(token.token))
+            except Exception:
+                pass
         except User.DoesNotExist:
             pass  # Don't reveal if email exists
         return Response({'message': 'If this email exists, a reset link has been sent.'})
