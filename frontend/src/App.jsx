@@ -60,7 +60,7 @@ function ProtectedRoute({ children, allowedRoles }) {
 
 export default function App() {
   useEffect(() => {
-    const ping = () => fetch('https://medical-system-7381.onrender.com/api/auth/login/', { method: 'HEAD' }).catch(() => {})
+    const ping = () => fetch('https://medical-system-7381.onrender.com/api/health/', { method: 'GET' }).catch(() => {})
     ping()
     const interval = setInterval(ping, 10 * 60 * 1000)
     return () => clearInterval(interval)
