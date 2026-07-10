@@ -274,7 +274,7 @@ IMPORTANT RULES:
 - NEVER use the word "diagnosis" in possible_conditions. Use "possible conditions".
 - Always recommend consulting a doctor before taking any medication.
 """
-        response = self.provider.generate(prompt, max_output_tokens=2048)
+        response = self.provider.generate(prompt, max_output_tokens=4096)
         try:
             json_match = re.search(r'\{.*\}', response, re.DOTALL)
             if json_match:

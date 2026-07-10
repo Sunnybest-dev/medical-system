@@ -146,9 +146,9 @@ export default function AIAssessment() {
             <Brain className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">AI Health Assessment</h1>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Mxta Assessment</h1>
             <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-              <Sparkles className="w-3 h-3" /> Powered by Gemini AI
+              <Sparkles className="w-3 h-3" /> Powered by Mxta AI
             </p>
           </div>
         </div>
@@ -370,9 +370,33 @@ export default function AIAssessment() {
               <ArrowLeft className="w-4 h-4" /> Back
             </Button>
             <Button onClick={handleAssess} loading={assessMutation.isPending} className="flex-1">
-              <Sparkles className="w-4 h-4" /> Get AI Assessment
+              <Sparkles className="w-4 h-4" /> Get Mxta Assessment
             </Button>
           </div>
+        </div>
+      )}
+
+      {/* ── Mxta Assessing Loader ── */}
+      {assessMutation.isPending && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/80 dark:bg-gray-950/80 backdrop-blur-sm">
+          <div className="relative w-20 h-20">
+            <svg className="animate-spin w-20 h-20" viewBox="0 0 80 80" fill="none">
+              <circle cx="40" cy="40" r="34" stroke="currentColor" strokeWidth="6" className="text-gray-200 dark:text-gray-700" />
+              <circle cx="40" cy="40" r="34" stroke="url(#grad)" strokeWidth="6"
+                strokeLinecap="round" strokeDasharray="160" strokeDashoffset="110" />
+              <defs>
+                <linearGradient id="grad" x1="0" y1="0" x2="80" y2="80" gradientUnits="userSpaceOnUse">
+                  <stop stopColor="#6366f1" />
+                  <stop offset="1" stopColor="#8b5cf6" />
+                </linearGradient>
+              </defs>
+            </svg>
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Brain className="w-7 h-7 text-primary-600 dark:text-primary-400" />
+            </div>
+          </div>
+          <p className="mt-5 text-base font-semibold text-gray-800 dark:text-white">Mxta is assessing your diagnosis</p>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Analysing symptoms &amp; generating your report…</p>
         </div>
       )}
 
