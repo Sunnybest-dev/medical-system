@@ -14,36 +14,66 @@ class RxNormService:
     def normalize(self, drug_name: str) -> dict:
         """Return rxcui, generic name, and brand names for a drug."""
         try:
+            # Use approximateTerm to find the best matching rxcui
             res = requests.get(
-                f'{self.BASE}/drugs.json',
-                params={'name': drug_name},
+                f'{self.BASE}/approximateTerm.json',
+                params={'term': drug_name, 'maxEntries': 5},
                 timeout=5,
             )
-            if not res.ok:
-                return {}
-            data = res.json()
-            concept_group = data.get('drugGroup', {}).get('conceptGroup', [])
             rxcui = None
-            generic_name = None
+            if res.ok:
+                candidates = res.json().get('approximateGroup', {}).get('candidate', [])
+                # Prefer exact ingredient (IN) match
+                for c in candidates:
+                    if c.get('source') == 'RXNORM':
+                        rxcui = c.get('rxcui')
+                        break
+                if not rxcui and candidates:
+                    rxcui = candidates[0].get('rxcui')
+
+            generic_name = drug_name
             brand_names = []
 
-            for group in concept_group:
-                props = group.get('conceptProperties', [])
-                tty = group.get('tty', '')
-                for prop in props:
-                    if tty == 'IN' and not rxcui:
-                        rxcui = prop.get('rxcui')
-                        generic_name = prop.get('name')
-                    elif tty == 'BN':
-                        brand_names.append(prop.get('name', ''))
+            if rxcui:
+                # Get the ingredient name for this rxcui
+                props_res = requests.get(
+                    f'{self.BASE}/rxcui/{rxcui}/properties.json',
+                    timeout=5,
+                )
+                if props_res.ok:
+                    props = props_res.json().get('properties', {})
+                    tty = props.get('tty', '')
+                    name = props.get('name', '')
+                    # If it's a compound/clinical drug, walk up to ingredient
+                    if tty not in ('IN', 'PIN') and name:
+                        ing_res = requests.get(
+                            f'{self.BASE}/rxcui/{rxcui}/related.json',
+                            params={'tty': 'IN'},
+                            timeout=5,
+                        )
+                        if ing_res.ok:
+                            ing_groups = ing_res.json().get('relatedGroup', {}).get('conceptGroup', [])
+                            for g in ing_groups:
+                                for p in g.get('conceptProperties', []):
+                                    generic_name = p.get('name', drug_name)
+                                    rxcui = p.get('rxcui', rxcui)
+                                    break
+                                break
+                        else:
+                            generic_name = name
+                    else:
+                        generic_name = name or drug_name
 
-            if not rxcui:
-                for group in concept_group:
-                    props = group.get('conceptProperties', [])
-                    if props:
-                        rxcui = props[0].get('rxcui')
-                        generic_name = props[0].get('name')
-                        break
+                # Get brand names
+                bn_res = requests.get(
+                    f'{self.BASE}/rxcui/{rxcui}/related.json',
+                    params={'tty': 'BN'},
+                    timeout=5,
+                )
+                if bn_res.ok:
+                    for g in bn_res.json().get('relatedGroup', {}).get('conceptGroup', []):
+                        for p in g.get('conceptProperties', []):
+                            brand_names.append(p.get('name', ''))
 
             return {
                 'rxcui': rxcui,

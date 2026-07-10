@@ -59,7 +59,7 @@ export default function RegisterPatientPage() {
       <div className="w-full max-w-lg">
         <div className="text-center mb-8 flex flex-col items-center">
           <Logo size="lg" />
-          <p className="text-gray-500 mt-2">Join Mxta for AI-powered healthcare</p>
+          <p className="text-gray-500 mt-2">Join MediAI for AI-powered healthcare</p>
         </div>
 
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">

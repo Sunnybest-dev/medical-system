@@ -23,7 +23,7 @@ export const useAuthStore = create(
       })),
     }),
     {
-      name: 'mxta-auth',
+      name: 'mediai-auth',
       partialize: (state) => ({
         user: state.user,
         tokens: state.tokens,

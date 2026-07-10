@@ -44,9 +44,9 @@ services:
       - key: EMAIL_HOST_PASSWORD
         sync: false
       - key: DEFAULT_FROM_EMAIL
-        value: "Mxta <noreply@mxta.health>"
+        value: "MediAI <noreply@mediai.health>"
       - key: JITSI_APP_ID
-        value: "mxta"
+        value: "mediai"
       - key: JITSI_SECRET
         sync: false
 

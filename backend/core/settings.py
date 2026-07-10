@@ -215,7 +215,7 @@ AUTHENTICATION_BACKENDS = (
 
 # ─── Gemini AI ────────────────────────────────────────────────────────────────
 GEMINI_API_KEY = config('GEMINI_API_KEY', default='')
-GEMINI_MODEL = config('GEMINI_MODEL', default='gemini-1.5-flash')
+GEMINI_MODEL = config('GEMINI_MODEL', default='gemini-2.0-flash')
 
 # ─── Email ────────────────────────────────────────────────────────────────────
 _email_user = config('EMAIL_HOST_USER', default='')
@@ -229,7 +229,7 @@ EMAIL_PORT = config('EMAIL_PORT', default=587, cast=int)
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = _email_user
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
-DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='Mxta <noreply@mxta.health>')
+DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='MediAI <noreply@mediai.health>')
 
 # ─── Celery ───────────────────────────────────────────────────────────────────
 CELERY_BROKER_URL = _redis_url or 'memory://'
@@ -255,5 +255,5 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 JITSI_APP_ID = config('JITSI_APP_ID', default='mediai')
 JITSI_SECRET = config('JITSI_SECRET', default='')
-ADMIN_SECRET_KEY = config('ADMIN_SECRET_KEY', default='mxta-admin-secret')
+ADMIN_SECRET_KEY = config('ADMIN_SECRET_KEY', default='mediai-admin-secret')
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')

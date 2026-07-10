@@ -146,9 +146,9 @@ export default function AIAssessment() {
             <Brain className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">Mxta Assessment</h1>
+            <h1 className="text-xl font-bold text-gray-900 dark:text-white">MediAI Assessment</h1>
             <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-              <Sparkles className="w-3 h-3" /> Powered by Mxta AI
+              <Sparkles className="w-3 h-3" /> Powered by MediAI
             </p>
           </div>
         </div>
@@ -370,13 +370,13 @@ export default function AIAssessment() {
               <ArrowLeft className="w-4 h-4" /> Back
             </Button>
             <Button onClick={handleAssess} loading={assessMutation.isPending} className="flex-1">
-              <Sparkles className="w-4 h-4" /> Get Mxta Assessment
+              <Sparkles className="w-4 h-4" /> Get MediAI Assessment
             </Button>
           </div>
         </div>
       )}
 
-      {/* ── Mxta Assessing Loader ── */}
+      {/* ── MediAI Assessing Loader ── */}
       {assessMutation.isPending && (
         <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-white/80 dark:bg-gray-950/80 backdrop-blur-sm">
           <div className="relative w-20 h-20">
@@ -395,7 +395,7 @@ export default function AIAssessment() {
               <Brain className="w-7 h-7 text-primary-600 dark:text-primary-400" />
             </div>
           </div>
-          <p className="mt-5 text-base font-semibold text-gray-800 dark:text-white">Mxta is assessing your diagnosis</p>
+          <p className="mt-5 text-base font-semibold text-gray-800 dark:text-white">MediAI is assessing your diagnosis</p>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Analysing symptoms &amp; generating your report…</p>
         </div>
       )}

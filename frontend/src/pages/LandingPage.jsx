@@ -58,7 +58,7 @@ export default function LandingPage() {
             </span>
           </h1>
           <p className="text-lg text-gray-600 dark:text-gray-400 mt-6 max-w-2xl mx-auto leading-relaxed">
-            Mxta connects you with verified doctors, provides AI-powered health assessments, and enables video consultations — all in one platform.
+            MediAI connects you with verified doctors, provides AI-powered health assessments, and enables video consultations — all in one platform.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center mt-10">
             <Link to="/register" className="inline-flex items-center justify-center gap-2 bg-primary-600 hover:bg-primary-700 text-white font-semibold px-8 py-3.5 rounded-xl transition-all shadow-lg shadow-primary-500/30 text-base">
@@ -69,7 +69,7 @@ export default function LandingPage() {
             </Link>
           </div>
           <div className="mt-8 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-xl p-4 text-sm text-amber-800 dark:text-amber-300 max-w-lg mx-auto">
-            <strong>⚠️ Medical Disclaimer:</strong> Mxta provides preliminary health information only. It does NOT replace professional medical advice, diagnosis, or treatment.
+            <strong>⚠️ Medical Disclaimer:</strong> MediAI provides preliminary health information only. It does NOT replace professional medical advice, diagnosis, or treatment.
           </div>
         </div>
       </section>
@@ -144,7 +144,7 @@ export default function LandingPage() {
         <div className="max-w-2xl mx-auto">
           <Heart className="w-12 h-12 text-white/80 mx-auto mb-4 fill-white/80" />
           <h2 className="text-3xl font-bold text-white mb-4">Ready to Take Control of Your Health?</h2>
-          <p className="text-primary-100 mb-8">Join thousands of patients and doctors on Mxta</p>
+          <p className="text-primary-100 mb-8">Join thousands of patients and doctors on MediAI</p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link to="/register" className="inline-flex items-center justify-center bg-white text-primary-700 font-semibold px-8 py-3.5 rounded-xl hover:bg-primary-50 transition-colors text-base">
               Create Patient Account
@@ -161,7 +161,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <Logo size="sm" />
           <p className="text-sm text-gray-500 text-center">
-            © 2024 Mxta. All rights reserved. | For informational purposes only — not a substitute for professional medical advice.
+            © 2024 MediAI. All rights reserved. | For informational purposes only — not a substitute for professional medical advice.
           </p>
         </div>
       </footer>
