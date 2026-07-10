@@ -5,6 +5,7 @@ from rest_framework.throttling import AnonRateThrottle
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
+from django.db import transaction
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from django.conf import settings
@@ -69,12 +70,13 @@ class PatientRegisterView(generics.CreateAPIView):
     permission_classes = [permissions.AllowAny]
     throttle_classes = [AuthRateThrottle]
 
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        _issue_verification_token(user)
         refresh = RefreshToken.for_user(user)
+        _issue_verification_token(user)
         return Response({
             'user': UserSerializer(user).data,
             'tokens': {'refresh': str(refresh), 'access': str(refresh.access_token)},
@@ -87,12 +89,13 @@ class DoctorRegisterView(generics.CreateAPIView):
     permission_classes = [permissions.AllowAny]
     throttle_classes = [AuthRateThrottle]
 
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        _issue_verification_token(user)
         refresh = RefreshToken.for_user(user)
+        _issue_verification_token(user)
         return Response({
             'user': UserSerializer(user).data,
             'tokens': {'refresh': str(refresh), 'access': str(refresh.access_token)},
@@ -110,15 +113,6 @@ class LogoutView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
-        # Blacklisting is best-effort — always return 200 so the frontend
-        # clears its state regardless of token validity.
-        try:
-            refresh_token = request.data.get('refresh')
-            if refresh_token:
-                token = RefreshToken(refresh_token)
-                token.blacklist()
-        except Exception:
-            pass
         return Response({'message': 'Logged out successfully.'})
 
 

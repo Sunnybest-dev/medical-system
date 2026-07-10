@@ -41,8 +41,16 @@ export default function RegisterPatientPage() {
       navigate('/patient')
     },
     onError: (err) => {
-      const msg = err.response?.data
-      toast.error(typeof msg === 'object' ? Object.values(msg).flat()[0] : 'Registration failed')
+      const data = err.response?.data
+      const status = err.response?.status
+      if (status === 400) {
+        const msg = data?.email?.[0] || data?.password?.[0] || (typeof data === 'object' ? Object.values(data).flat()[0] : null)
+        toast.error(msg || 'Please check your details and try again.')
+      } else if (status === 500) {
+        toast.error('Server error. Please try again in a moment.')
+      } else {
+        toast.error('Registration failed. Please try again.')
+      }
     },
   })
 
