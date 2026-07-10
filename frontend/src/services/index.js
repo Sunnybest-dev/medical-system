@@ -1,4 +1,7 @@
+import axios from 'axios'
 import api from './api'
+
+const BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
 // Auth
 export const authService = {
@@ -6,7 +9,8 @@ export const authService = {
   registerPatient: (data) => api.post('/auth/register/patient/', data),
   registerDoctor: (data) => api.post('/auth/register/doctor/', data),
   registerAdmin: (data) => api.post('/auth/register/admin/', data),
-  logout: (refresh) => api.post('/auth/logout/', { refresh }),
+  // Use plain axios so an expired access token never triggers the refresh interceptor on logout
+  logout: (refresh) => axios.post(`${BASE_URL}/auth/logout/`, { refresh }).catch(() => {}),
   me: () => api.get('/auth/me/'),
   updateMe: (data) => api.patch('/auth/me/', data),
   verifyEmail: (token) => api.post('/auth/verify-email/', { token }),

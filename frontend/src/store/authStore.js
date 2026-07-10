@@ -14,18 +14,21 @@ export const useAuthStore = create(
         user: { ...state.user, ...userData },
       })),
 
-      logout: () => {
-        set({ user: null, tokens: null, isAuthenticated: false })
-        localStorage.removeItem('mxta-auth')
-      },
+      logout: () => set({ user: null, tokens: null, isAuthenticated: false }),
 
       getAccessToken: () => get().tokens?.access,
       getRefreshToken: () => get().tokens?.refresh,
-      setTokens: (tokens) => set((state) => ({ tokens: { ...state.tokens, ...tokens } })),
+      setTokens: (newTokens) => set((state) => ({
+        tokens: { ...state.tokens, ...newTokens },
+      })),
     }),
     {
       name: 'mxta-auth',
-      partialize: (state) => ({ user: state.user, tokens: state.tokens, isAuthenticated: state.isAuthenticated }),
+      partialize: (state) => ({
+        user: state.user,
+        tokens: state.tokens,
+        isAuthenticated: state.isAuthenticated,
+      }),
     }
   )
 )

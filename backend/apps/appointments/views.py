@@ -6,6 +6,7 @@ from .models import Appointment, ConsultationNote
 from .serializers import AppointmentSerializer, AppointmentCreateSerializer, ConsultationNoteSerializer
 from apps.users.models import User
 from apps.notifications.tasks import send_appointment_notification
+from django.conf import settings
 
 
 class AppointmentListCreateView(generics.ListCreateAPIView):
@@ -26,7 +27,10 @@ class AppointmentListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         appointment = serializer.save(patient=self.request.user)
-        send_appointment_notification.delay(str(appointment.id), 'created')
+        try:
+            send_appointment_notification(str(appointment.id), 'created')
+        except Exception:
+            pass
 
 
 class AppointmentDetailView(generics.RetrieveUpdateAPIView):
@@ -68,7 +72,10 @@ class AppointmentStatusUpdateView(APIView):
             appointment.cancellation_reason = request.data.get('reason', '')
             appointment.cancelled_by = request.user
         appointment.save()
-        send_appointment_notification.delay(str(appointment.id), new_status)
+        try:
+            send_appointment_notification(str(appointment.id), new_status)
+        except Exception:
+            pass
         return Response(AppointmentSerializer(appointment).data)
 
 

@@ -54,6 +54,16 @@ class AdminRegisterView(generics.CreateAPIView):
         }, status=status.HTTP_201_CREATED)
 
 
+def _issue_verification_token(user):
+    """Create or replace verification token and send email (best-effort)."""
+    EmailVerificationToken.objects.filter(user=user).delete()
+    token = EmailVerificationToken.objects.create(user=user)
+    try:
+        send_verification_email(user.id, str(token.token))
+    except Exception:
+        pass
+
+
 class PatientRegisterView(generics.CreateAPIView):
     serializer_class = PatientRegisterSerializer
     permission_classes = [permissions.AllowAny]
@@ -63,11 +73,7 @@ class PatientRegisterView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        token = EmailVerificationToken.objects.create(user=user)
-        try:
-            send_verification_email(user.id, str(token.token))
-        except Exception:
-            pass
+        _issue_verification_token(user)
         refresh = RefreshToken.for_user(user)
         return Response({
             'user': UserSerializer(user).data,
@@ -85,11 +91,7 @@ class DoctorRegisterView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        token = EmailVerificationToken.objects.create(user=user)
-        try:
-            send_verification_email(user.id, str(token.token))
-        except Exception:
-            pass
+        _issue_verification_token(user)
         refresh = RefreshToken.for_user(user)
         return Response({
             'user': UserSerializer(user).data,
@@ -105,14 +107,19 @@ class LoginView(TokenObtainPairView):
 
 
 class LogoutView(APIView):
+    permission_classes = [permissions.AllowAny]
+
     def post(self, request):
+        # Blacklisting is best-effort — always return 200 so the frontend
+        # clears its state regardless of token validity.
         try:
             refresh_token = request.data.get('refresh')
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-            return Response({'message': 'Logged out successfully.'})
+            if refresh_token:
+                token = RefreshToken(refresh_token)
+                token.blacklist()
         except Exception:
-            return Response({'error': 'Invalid token.'}, status=status.HTTP_400_BAD_REQUEST)
+            pass
+        return Response({'message': 'Logged out successfully.'})
 
 
 class MeView(generics.RetrieveUpdateAPIView):

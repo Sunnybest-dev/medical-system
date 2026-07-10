@@ -52,7 +52,10 @@ class CreateEmergencyView(APIView):
             emergency.jitsi_room_name = appointment.jitsi_room_name
             emergency.save()
 
-            send_emergency_notification.delay(str(emergency.id))
+            try:
+                send_emergency_notification(str(emergency.id))
+            except Exception:
+                pass
 
             response_data.update({
                 'doctor_assigned': True,
