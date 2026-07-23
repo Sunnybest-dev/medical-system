@@ -29,7 +29,10 @@ class FollowupQuestionsView(APIView):
         serializer = FollowupQuestionsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         service = HealthAssessmentService()
-        questions = service.get_followup_questions(serializer.validated_data['symptoms'])
+        questions = service.get_followup_questions(
+            serializer.validated_data['symptoms'],
+            patient_info=None,
+        )
         return Response({'questions': questions})
 
 

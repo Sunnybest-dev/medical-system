@@ -8,6 +8,170 @@ import requests
 logger = logging.getLogger(__name__)
 
 
+class InfermedicaProvider:
+    """
+    Primary medical AI — Infermedica symptom checker API.
+    Docs: https://developer.infermedica.com/docs
+    Free tier: 100 calls/month on production; sandbox is unlimited but returns test data.
+    """
+    BASE = 'https://api.infermedica.com/v3'
+
+    # Infermedica triage level → our severity_level
+    TRIAGE_MAP = {
+        'emergency': 'red',
+        'emergency_ambulance': 'red',
+        'consultation_24': 'yellow',
+        'consultation': 'yellow',
+        'self_care': 'green',
+    }
+
+    # Infermedica specialist → readable name
+    SPECIALIST_MAP = {
+        'general_practitioner': 'General Practitioner',
+        'internist': 'Internal Medicine',
+        'cardiologist': 'Cardiologist',
+        'pulmonologist': 'Pulmonologist',
+        'neurologist': 'Neurologist',
+        'gastroenterologist': 'Gastroenterologist',
+        'dermatologist': 'Dermatologist',
+        'orthopedist': 'Orthopaedic Surgeon',
+        'gynecologist': 'Gynaecologist',
+        'urologist': 'Urologist',
+        'ophthalmologist': 'Ophthalmologist',
+        'otolaryngologist': 'ENT Specialist',
+        'psychiatrist': 'Psychiatrist',
+        'endocrinologist': 'Endocrinologist',
+        'rheumatologist': 'Rheumatologist',
+        'allergist': 'Allergist / Immunologist',
+        'emergency_medicine': 'Emergency Medicine',
+    }
+
+    def __init__(self):
+        self.available = False
+        self.app_id = getattr(settings, 'INFERMEDICA_APP_ID', '')
+        self.app_key = getattr(settings, 'INFERMEDICA_APP_KEY', '')
+        if self.app_id and self.app_key:
+            self.available = True
+        else:
+            logger.warning('INFERMEDICA_APP_ID / INFERMEDICA_APP_KEY not set — falling back to Gemini.')
+
+    def _headers(self):
+        return {
+            'App-Id': self.app_id,
+            'App-Key': self.app_key,
+            'Content-Type': 'application/json',
+            'Interview-Id': 'mediai-session',
+        }
+
+    def _post(self, path: str, payload: dict) -> dict | None:
+        try:
+            res = requests.post(
+                f'{self.BASE}{path}',
+                headers=self._headers(),
+                json=payload,
+                timeout=10,
+            )
+            if res.status_code == 402:
+                logger.warning('Infermedica quota exceeded — falling back to Gemini.')
+                return None
+            if not res.ok:
+                logger.warning(f'Infermedica {path} returned {res.status_code}: {res.text[:200]}')
+                return None
+            return res.json()
+        except Exception as e:
+            logger.warning(f'Infermedica {path} error: {e}')
+            return None
+
+    def search_symptoms(self, symptom_names: list, age: int = 30, sex: str = 'male') -> list:
+        """Convert symptom name strings → list of {id, name} Infermedica concepts."""
+        found = []
+        for name in symptom_names:
+            try:
+                res = requests.get(
+                    f'{self.BASE}/search',
+                    headers=self._headers(),
+                    params={'phrase': name, 'age.value': age, 'sex': sex, 'max_results': 3, 'types': 'symptom'},
+                    timeout=8,
+                )
+                if res.ok:
+                    results = res.json()
+                    if results:
+                        found.append({'id': results[0]['id'], 'name': results[0]['label']})
+            except Exception as e:
+                logger.warning(f'Infermedica search failed for "{name}": {e}')
+        return found
+
+    def get_suggest_questions(self, symptom_ids: list, age: int = 30, sex: str = 'male') -> list:
+        """Use Infermedica /suggest to get the most relevant next symptoms to ask about."""
+        if not symptom_ids:
+            return []
+        evidence = [{'id': sid, 'choice_id': 'present'} for sid in symptom_ids]
+        data = self._post('/suggest', {
+            'sex': sex,
+            'age': {'value': age},
+            'evidence': evidence,
+            'suggest_method': 'symptoms',
+            'max_results': 5,
+        })
+        if not data:
+            return []
+        # Convert suggested symptoms into plain questions
+        questions = []
+        for item in data:
+            name = item.get('name', item.get('label', ''))
+            if name:
+                questions.append(f'Are you experiencing {name}?')
+        return questions
+
+    def diagnose(self, symptom_ids: list, age: int = 30, sex: str = 'male', extras: dict = None) -> dict | None:
+        """Call /diagnosis and /triage, return unified result dict."""
+        evidence = [{'id': sid, 'choice_id': 'present'} for sid in symptom_ids]
+        payload = {
+            'sex': sex,
+            'age': {'value': age},
+            'evidence': evidence,
+            'extras': extras or {},
+        }
+
+        diagnosis = self._post('/diagnosis', payload)
+        triage = self._post('/triage', payload)
+
+        if not diagnosis:
+            return None
+
+        conditions = []
+        for c in diagnosis.get('conditions', [])[:5]:
+            prob = c.get('probability', 0)
+            likelihood = 'high' if prob >= 0.5 else 'medium' if prob >= 0.2 else 'low'
+            conditions.append({
+                'name': c.get('name', ''),
+                'likelihood': likelihood,
+                'description': c.get('common_name', c.get('name', '')),
+                'probability': round(prob * 100, 1),
+            })
+
+        triage_level = 'yellow'
+        triage_desc = 'Please consult a doctor for a proper evaluation.'
+        if triage:
+            raw_level = triage.get('triage_level', 'consultation')
+            triage_level = self.TRIAGE_MAP.get(raw_level, 'yellow')
+            triage_desc = triage.get('description', triage_desc)
+
+        # Specialist from triage recommended_channel or top condition
+        specialist = 'General Practitioner'
+        if triage:
+            raw_spec = triage.get('recommended_channel', {}).get('type', '')
+            specialist = self.SPECIALIST_MAP.get(raw_spec, 'General Practitioner')
+
+        return {
+            'possible_conditions': conditions,
+            'severity_level': triage_level,
+            'severity_reason': triage_desc,
+            'suggested_specialist': specialist,
+            'source': 'infermedica',
+        }
+
+
 class RxNormService:
     BASE = 'https://rxnav.nlm.nih.gov/REST'
 
@@ -207,119 +371,152 @@ class HealthAssessmentService:
     )
 
     def __init__(self):
-        self.provider = GeminiProvider()
+        self.infermedica = InfermedicaProvider()
+        self.gemini = GeminiProvider()
         self.fda = OpenFDAService()
         self.rxnorm = RxNormService()
 
-    def get_followup_questions(self, symptoms: list) -> list:
+    # ── Follow-up questions ───────────────────────────────────────────────────
+
+    def get_followup_questions(self, symptoms: list, patient_info: dict = None) -> list:
         default_questions = [
-            "How long have you had these symptoms?",
-            "How would you rate the severity from 1 to 10?",
-            "Do you have any existing medical conditions?",
-            "Are you currently taking any medications?",
-            "Have you experienced these symptoms before?",
+            'How long have you had these symptoms?',
+            'How would you rate the severity from 1 to 10?',
+            'Do you have any existing medical conditions?',
+            'Are you currently taking any medications?',
+            'Have you experienced these symptoms before?',
         ]
 
-        if not self.provider.available:
+        # Try Infermedica /suggest first
+        if self.infermedica.available:
+            age = (patient_info or {}).get('age') or 30
+            sex = (patient_info or {}).get('gender', 'male')
+            sex = sex if sex in ('male', 'female') else 'male'
+            concepts = self.infermedica.search_symptoms(symptoms, age=age, sex=sex)
+            if concepts:
+                ids = [c['id'] for c in concepts]
+                questions = self.infermedica.get_suggest_questions(ids, age=age, sex=sex)
+                if questions:
+                    return questions
+
+        # Gemini fallback
+        if not self.gemini.available:
             return default_questions
 
         symptom_list = ', '.join(symptoms)
         prompt = f"""You are a medical triage assistant. A patient reports: {symptom_list}
 
 Generate 5 highly specific follow-up questions tailored EXACTLY to these symptoms.
-Each question must directly relate to one or more of the reported symptoms.
-Do NOT ask generic questions like "how long" or "rate your pain" unless directly relevant.
-
-Examples for headache: "Is the headache throbbing or constant?", "Does light or noise make it worse?"
-Examples for chest pain: "Does the pain radiate to your arm or jaw?", "Does it worsen with physical activity?"
-Examples for fever: "What is your temperature reading?", "Do you have chills or night sweats?"
-
-Return ONLY a JSON array of 5 question strings, no explanation:
+Return ONLY a JSON array of 5 question strings:
 ["question 1", "question 2", "question 3", "question 4", "question 5"]
 """
-        response = self.provider.generate(prompt, max_output_tokens=512)
+        response = self.gemini.generate(prompt, max_output_tokens=512)
         try:
-            json_match = re.search(r'\[.*\]', response, re.DOTALL)
-            if json_match:
-                return json.loads(json_match.group())
+            match = re.search(r'\[.*\]', response, re.DOTALL)
+            if match:
+                return json.loads(match.group())
         except (json.JSONDecodeError, AttributeError):
             pass
         return default_questions
 
+    # ── Main assessment ───────────────────────────────────────────────────────
+
     def perform_assessment(self, symptoms: list, followup_answers: dict, patient_info: dict = None) -> dict:
-        if not self.provider.available:
+        age = (patient_info or {}).get('age') or 30
+        sex = (patient_info or {}).get('gender', 'male')
+        sex = sex if sex in ('male', 'female') else 'male'
+
+        infermedica_result = None
+
+        # ── Primary: Infermedica ──────────────────────────────────────────────
+        if self.infermedica.available:
+            concepts = self.infermedica.search_symptoms(symptoms, age=age, sex=sex)
+            if concepts:
+                ids = [c['id'] for c in concepts]
+                infermedica_result = self.infermedica.diagnose(ids, age=age, sex=sex)
+
+        # ── Secondary: Gemini (for summary, medications, care tips) ───────────
+        gemini_result = self._gemini_assessment(symptoms, followup_answers, patient_info)
+
+        # ── Merge: Infermedica conditions/severity + Gemini medications/summary
+        if infermedica_result:
+            result = {
+                **gemini_result,
+                # Infermedica wins on medical accuracy fields
+                'possible_conditions': infermedica_result['possible_conditions'] or gemini_result.get('possible_conditions', []),
+                'severity_level': infermedica_result['severity_level'],
+                'severity_reason': infermedica_result['severity_reason'],
+                'suggested_specialist': infermedica_result['suggested_specialist'],
+                'source': 'infermedica+gemini' if gemini_result else 'infermedica',
+            }
+        else:
+            result = gemini_result
+
+        result['suggested_medications'] = self._enrich_medications(
+            result.get('suggested_medications', [])
+        )
+        result['disclaimer'] = (
+            'IMPORTANT MEDICAL DISCLAIMER: This assessment is for informational purposes only. '
+            'It does NOT constitute a medical diagnosis. Always consult a qualified healthcare professional.'
+        )
+        return result
+
+    def _gemini_assessment(self, symptoms: list, followup_answers: dict, patient_info: dict = None) -> dict:
+        """Run Gemini assessment. Returns fallback dict if Gemini unavailable."""
+        if not self.gemini.available:
             return self._fallback_assessment(symptoms)
 
         symptom_list = ', '.join(symptoms)
-        answers_text = '\n'.join([f"- {q}: {a}" for q, a in followup_answers.items()])
-        patient_context = ""
+        answers_text = '\n'.join([f'- {q}: {a}' for q, a in followup_answers.items()])
+        patient_context = ''
         if patient_info:
-            patient_context = f"""
-Patient Context:
-- Age: {patient_info.get('age', 'Unknown')}
-- Gender: {patient_info.get('gender', 'Unknown')}
-- Known conditions: {patient_info.get('existing_conditions', 'None')}
-- Current medications: {patient_info.get('current_medications', 'None')}
-- Allergies: {patient_info.get('allergies', 'None')}
-"""
+            patient_context = (
+                f"\nPatient Context:\n"
+                f"- Age: {patient_info.get('age', 'Unknown')}\n"
+                f"- Gender: {patient_info.get('gender', 'Unknown')}\n"
+                f"- Known conditions: {patient_info.get('existing_conditions', 'None')}\n"
+                f"- Current medications: {patient_info.get('current_medications', 'None')}\n"
+                f"- Allergies: {patient_info.get('allergies', 'None')}\n"
+            )
 
-        prompt = f"""{self.DISCLAIMER}
-{patient_context}
+        prompt = f"""You are a medical AI assistant. {patient_context}
 Reported Symptoms: {symptom_list}
 
 Follow-up Information:
 {answers_text}
 
-Provide a detailed health assessment in the following JSON format ONLY:
+Return ONLY this JSON:
 {{
   "severity_level": "green|yellow|red",
-  "severity_reason": "Brief explanation of severity",
+  "severity_reason": "Brief explanation",
   "possible_conditions": [
-    {{"name": "Condition Name", "likelihood": "high|medium|low", "description": "Brief description"}}
+    {{"name": "Condition", "likelihood": "high|medium|low", "description": "Brief description"}}
   ],
-  "suggested_specialist": "Type of specialist",
+  "suggested_specialist": "Specialist type",
   "recommendations": "Specific actionable recommendations",
-  "when_to_seek_emergency": "Signs that require immediate emergency care",
+  "when_to_seek_emergency": "Signs requiring immediate care",
   "general_care_tips": ["tip1", "tip2"],
   "suggested_medications": [
-    {{
-      "name": "Generic medication name only (e.g. ibuprofen, paracetamol, amoxicillin)",
-      "purpose": "Why this medication is relevant to the patient's specific symptoms",
-      "otc_or_prescription": "OTC or Prescription",
-      "duration": "e.g. 5-7 days or as directed by doctor"
-    }}
+    {{"name": "generic name only", "purpose": "why relevant", "otc_or_prescription": "OTC or Prescription", "duration": "duration"}}
   ],
-  "diagnosis_summary": "A plain-language summary of what the patient likely has based on symptoms and answers"
+  "diagnosis_summary": "Plain-language summary for a non-medical person"
 }}
 
-SEVERITY RULES:
-- RED: Chest pain, difficulty breathing, stroke symptoms, severe bleeding, unconsciousness, seizures
-- YELLOW: Persistent fever >3 days, repeated vomiting, moderate pain, worsening symptoms
-- GREEN: Mild symptoms, common cold, minor headache, manageable conditions
-
-IMPORTANT RULES:
-- For suggested_medications, use only the generic drug name so it can be looked up in a drug database.
-- Suggest at most 3 medications. Only suggest safe OTC drugs where appropriate.
-- diagnosis_summary must be written in simple language a non-medical person understands.
-- NEVER use the word "diagnosis" in possible_conditions. Use "possible conditions".
+RULES:
+- suggested_medications: generic names only, max 3, OTC where safe.
+- NEVER say 'diagnosis'. Use 'possible conditions'.
 - Always recommend consulting a doctor before taking any medication.
+- RED: chest pain, difficulty breathing, stroke, seizures, severe bleeding.
+- YELLOW: persistent fever >3 days, moderate pain, worsening symptoms.
+- GREEN: mild/common symptoms.
 """
-        response = self.provider.generate(prompt, max_output_tokens=4096)
+        response = self.gemini.generate(prompt, max_output_tokens=4096)
         try:
-            json_match = re.search(r'\{.*\}', response, re.DOTALL)
-            if json_match:
-                result = json.loads(json_match.group())
-                result['suggested_medications'] = self._enrich_medications(
-                    result.get('suggested_medications', [])
-                )
-                result['disclaimer'] = (
-                    "IMPORTANT MEDICAL DISCLAIMER: This AI health assessment is for informational purposes only. "
-                    "It does NOT constitute a medical diagnosis. Always consult a qualified healthcare professional."
-                )
-                return result
+            match = re.search(r'\{.*\}', response, re.DOTALL)
+            if match:
+                return json.loads(match.group())
         except (json.JSONDecodeError, AttributeError):
             pass
-
         return self._fallback_assessment(symptoms)
 
     def _enrich_medications(self, medications: list) -> list:
@@ -393,14 +590,14 @@ IMPORTANT RULES:
         fda_data = self.fda.fetch(normalized_name) or self.fda.fetch(medication_name)
 
         ai_info = {}
-        if self.provider.available:
+        if self.gemini.available:
             prompt = f"""For the medication "{normalized_name}", return ONLY this JSON:
 {{
   "purpose": "What it is used for (1-2 sentences)",
   "how_it_works": "Mechanism of action (1-2 sentences)"
 }}
 No dosage. No prescribing. Information only."""
-            response = self.provider.generate(prompt, max_output_tokens=256)
+            response = self.gemini.generate(prompt, max_output_tokens=256)
             try:
                 match = re.search(r'\{.*\}', response, re.DOTALL)
                 if match:
@@ -427,7 +624,7 @@ No dosage. No prescribing. Information only."""
                 'disclaimer': 'This information is sourced from FDA and RxNorm databases. Always consult your doctor or pharmacist before taking any medication.',
             }
 
-        if not self.provider.available:
+        if not self.gemini.available:
             return {'error': 'AI service unavailable. Please consult a pharmacist.'}
 
         prompt = f"""Provide factual information about the medication: {medication_name}
@@ -446,7 +643,7 @@ Return ONLY this JSON:
   "disclaimer": "Always consult your doctor or pharmacist before taking any medication."
 }}
 No dosage. No prescribing. Information only."""
-        response = self.provider.generate(prompt, max_output_tokens=1024)
+        response = self.gemini.generate(prompt, max_output_tokens=1024)
         try:
             match = re.search(r'\{.*\}', response, re.DOTALL)
             if match:

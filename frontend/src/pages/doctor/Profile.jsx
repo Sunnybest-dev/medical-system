@@ -39,7 +39,7 @@ export default function DoctorProfilePage() {
       years_of_experience: profile.years_of_experience,
       consultation_fee: profile.consultation_fee,
       bio: profile.bio,
-      specialization: profile.specialization?.id,
+      specialization_id: profile.specialization?.id,
     })
   }, [profile])
 
@@ -52,7 +52,7 @@ export default function DoctorProfilePage() {
   const uploadMutation = useMutation({
     mutationFn: (fd) => doctorService.uploadDocument(fd),
     onSuccess: () => { qc.invalidateQueries(['doctor-profile']); toast.success('Document uploaded!') },
-    onError: () => toast.error('Upload failed'),
+    onError: (err) => toast.error(err.response?.data?.error || 'Upload failed. Check your file type and size.'),
   })
 
   const handleFileUpload = (e) => {
@@ -77,7 +77,7 @@ export default function DoctorProfilePage() {
       <Card>
         <h2 className="font-semibold text-gray-900 mb-4">Professional Information</h2>
         <form onSubmit={handleSubmit(updateMutation.mutate)} className="space-y-4">
-          <Select label="Specialization" {...register('specialization')}>
+          <Select label="Specialization" {...register('specialization_id')}>
             <option value="">Select specialization</option>
             {(specializations?.results || specializations || []).map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>

@@ -37,7 +37,7 @@ export const doctorService = {
   detail: (id) => api.get(`/doctors/${id}/`),
   getProfile: () => api.get('/doctors/profile/'),
   updateProfile: (data) => api.patch('/doctors/profile/', data),
-  uploadDocument: (formData) => api.post('/doctors/documents/', formData, {
+  uploadDocument: (formData) => api.post('/doctors/documents/upload/', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
   getAvailability: () => api.get('/doctors/availability/'),

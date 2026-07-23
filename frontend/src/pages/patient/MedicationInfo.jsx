@@ -59,17 +59,17 @@ export default function MedicationInfo() {
   const [result, setResult] = useState(null)
 
   const { mutate, isPending } = useMutation({
-    mutationFn: () => aiService.getMedicationInfo(query),
+    mutationFn: (drugName) => aiService.getMedicationInfo(drugName),
     onSuccess: ({ data }) => setResult(data),
     onError: () => toast.error('Failed to get medication info'),
   })
 
-  const handleSearch = useCallback((name = query) => {
-    const q = name || query
-    if (!q.trim()) return toast.error('Enter a medication name')
+  const handleSearch = useCallback((name) => {
+    const q = (name || query).trim()
+    if (!q) return toast.error('Enter a medication name')
     setQuery(q)
     setResult(null)
-    setTimeout(() => mutate(), 0)
+    mutate(q)
   }, [query, mutate])
 
   const sourceLabel = result?.source === 'fda' ? '🏛️ FDA + RxNorm' : '🤖 AI Generated'
@@ -101,10 +101,10 @@ export default function MedicationInfo() {
               placeholder="Enter drug or medication name (e.g. Paracetamol, Metformin...)"
               value={query}
               onChange={e => setQuery(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleSearch()}
+              onKeyDown={e => e.key === 'Enter' && handleSearch(query)}
             />
           </div>
-          <Button onClick={() => handleSearch()} loading={isPending}>Search</Button>
+          <Button onClick={() => handleSearch(query)} loading={isPending}>Search</Button>
         </div>
         <div>
           <p className="text-xs text-gray-400 dark:text-gray-500 mb-2">Popular searches:</p>

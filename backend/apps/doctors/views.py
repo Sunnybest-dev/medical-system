@@ -85,6 +85,8 @@ class DoctorDocumentUploadView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsDoctor]
     parser_classes = [MultiPartParser, FormParser]
 
+    MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+
     def post(self, request):
         file = request.FILES.get('file')
         document_type = request.data.get('document_type')
@@ -94,14 +96,36 @@ class DoctorDocumentUploadView(APIView):
 
         allowed_types = ['image/jpeg', 'image/png', 'application/pdf']
         if file.content_type not in allowed_types:
-            return Response({'error': 'Invalid file type.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'Invalid file type. Only JPG, PNG and PDF are allowed.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        result = cloudinary.uploader.upload(file, folder='mediai/doctor-docs', resource_type='auto')
-        profile, _ = DoctorProfile.objects.get_or_create(user=request.user)
+        if file.size > self.MAX_FILE_SIZE:
+            return Response({'error': 'File too large. Maximum size is 10 MB.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        valid_doc_types = [dt[0] for dt in DoctorDocument.DocumentType.choices]
+        if document_type not in valid_doc_types:
+            return Response({'error': f'Invalid document type. Must be one of: {valid_doc_types}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            result = cloudinary.uploader.upload(
+                file,
+                folder='mediai/doctor-docs',
+                resource_type='auto',
+                allowed_formats=['jpg', 'jpeg', 'png', 'pdf'],
+            )
+            file_url = result['secure_url']
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f'Cloudinary upload failed: {e}')
+            return Response({'error': 'File upload failed. Please check Cloudinary configuration or try again.'}, status=status.HTTP_502_BAD_GATEWAY)
+
+        profile, _ = DoctorProfile.objects.get_or_create(
+            user=request.user,
+            defaults={'medical_license_number': f'TEMP-{request.user.id}'}
+        )
         doc = DoctorDocument.objects.create(
             doctor=profile,
             document_type=document_type,
-            file_url=result['secure_url']
+            file_url=file_url,
         )
         return Response(DoctorDocumentSerializer(doc).data, status=status.HTTP_201_CREATED)
 

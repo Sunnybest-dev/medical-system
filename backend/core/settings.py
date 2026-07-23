@@ -191,12 +191,25 @@ except Exception:
     }
 
 # ─── Cloudinary ───────────────────────────────────────────────────────────────
+_cloudinary_name = config('CLOUDINARY_CLOUD_NAME', default='')
+_cloudinary_key = config('CLOUDINARY_API_KEY', default='')
+_cloudinary_secret = config('CLOUDINARY_API_SECRET', default='')
+
 CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': config('CLOUDINARY_CLOUD_NAME', default=''),
-    'API_KEY': config('CLOUDINARY_API_KEY', default=''),
-    'API_SECRET': config('CLOUDINARY_API_SECRET', default=''),
+    'CLOUD_NAME': _cloudinary_name,
+    'API_KEY': _cloudinary_key,
+    'API_SECRET': _cloudinary_secret,
 }
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+# Configure the cloudinary SDK directly so uploader.upload() works
+import cloudinary
+cloudinary.config(
+    cloud_name=_cloudinary_name,
+    api_key=_cloudinary_key,
+    api_secret=_cloudinary_secret,
+    secure=True,
+)
 
 # ─── Static files ─────────────────────────────────────────────────────────────
 STATIC_URL = '/static/'
