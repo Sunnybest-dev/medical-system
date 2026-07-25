@@ -5,11 +5,11 @@ from django.db.models import Count, Avg
 from django.utils import timezone
 from datetime import timedelta
 from apps.users.models import User
-from apps.doctors.models import DoctorProfile
+from apps.doctors.models import DoctorProfile, DoctorDocument
 from apps.appointments.models import Appointment
 from apps.ai_engine.models import AIAssessment, Symptom
 from apps.payments.models import Payment
-from apps.doctors.serializers import DoctorProfileSerializer
+from apps.doctors.serializers import DoctorProfileSerializer, DoctorDocumentSerializer
 from apps.users.serializers import UserSerializer
 from apps.notifications.tasks import push_notification
 
@@ -30,9 +30,13 @@ class AdminDashboardView(APIView):
         total_doctors = DoctorProfile.objects.filter(
             verification_status=DoctorProfile.VerificationStatus.APPROVED
         ).count()
-        pending_verifications = DoctorProfile.objects.filter(
-            verification_status__in=['pending', 'under_review']
+        pending_count = DoctorProfile.objects.filter(
+            verification_status='pending'
         ).count()
+        under_review_count = DoctorProfile.objects.filter(
+            verification_status='under_review'
+        ).count()
+        pending_verifications = pending_count + under_review_count
         total_consultations = Appointment.objects.filter(status='completed').count()
         monthly_consultations = Appointment.objects.filter(
             status='completed', created_at__gte=thirty_days_ago
@@ -49,6 +53,8 @@ class AdminDashboardView(APIView):
                 'total_patients': total_users,
                 'total_approved_doctors': total_doctors,
                 'pending_verifications': pending_verifications,
+                'pending_count': pending_count,
+                'under_review_count': under_review_count,
                 'total_consultations': total_consultations,
                 'monthly_consultations': monthly_consultations,
             },
@@ -154,3 +160,32 @@ class AdminAnalyticsView(APIView):
                 AIAssessment.objects.values('severity_level').annotate(count=Count('id'))
             ),
         })
+
+
+class AdminDocumentDeleteView(APIView):
+    """
+    Admin-only endpoint to delete a doctor's verification document.
+    Doctors cannot delete their own documents — only an admin can after review.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsAdmin]
+
+    def delete(self, request, doc_id):
+        try:
+            doc = DoctorDocument.objects.select_related('doctor__user').get(id=doc_id)
+        except DoctorDocument.DoesNotExist:
+            return Response({'error': 'Document not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        doctor_name = doc.doctor.user.full_name
+        doc_type = doc.document_type
+        doc.delete()
+
+        push_notification(
+            doc.doctor.user.id,
+            'Document Removed',
+            f'Your {doc_type.replace("_", " ")} document has been removed by an administrator.',
+            'verification',
+        )
+
+        return Response({
+            'message': f'{doc_type.replace("_", " ").title()} document for Dr. {doctor_name} deleted successfully.'
+        }, status=status.HTTP_200_OK)

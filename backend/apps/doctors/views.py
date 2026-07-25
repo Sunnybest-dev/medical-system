@@ -81,6 +81,17 @@ class DoctorProfileView(generics.RetrieveUpdateAPIView):
         return profile
 
 
+class DoctorDocumentListView(generics.ListAPIView):
+    """Return all documents belonging to the authenticated doctor."""
+    serializer_class = DoctorDocumentSerializer
+    permission_classes = [permissions.IsAuthenticated, IsDoctor]
+
+    def get_queryset(self):
+        return DoctorDocument.objects.filter(
+            doctor__user=self.request.user
+        ).order_by('-uploaded_at')
+
+
 class DoctorDocumentUploadView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsDoctor]
     parser_classes = [MultiPartParser, FormParser]

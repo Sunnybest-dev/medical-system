@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import {
   CheckCircle, XCircle, Eye, Clock, AlertTriangle, FileText,
   User, Stethoscope, Award, Globe, DollarSign, Search,
-  ChevronDown, ChevronUp, ExternalLink, ShieldCheck, ShieldX, ShieldAlert, X
+  ChevronDown, ChevronUp, ExternalLink, ShieldCheck, ShieldX, ShieldAlert, X, Trash2
 } from 'lucide-react'
 import { adminService } from '@/services'
 import { Badge, Avatar, Spinner, EmptyState } from '@/components/ui'
@@ -90,8 +91,30 @@ function DoctorCard({ doctor, onAction, actionLoading }) {
   const [expanded, setExpanded] = useState(false)
   const [rejectModal, setRejectModal] = useState(false)
   const [suspendModal, setSuspendModal] = useState(false)
+  const [deletingDocId, setDeletingDocId] = useState(null)
+  const qc = useQueryClient()
   const status = doctor.verification_status
   const cfg = verificationStatusConfig[status] || {}
+
+  const deleteDocMutation = useMutation({
+    mutationFn: (docId) => adminService.deleteDocument(docId),
+    onSuccess: (_, docId) => {
+      toast.success('Document deleted and doctor notified.')
+      setDeletingDocId(null)
+      // Refresh the verification list so the document disappears immediately
+      qc.invalidateQueries({ queryKey: ['doctor-verifications'] })
+    },
+    onError: () => {
+      toast.error('Failed to delete document.')
+      setDeletingDocId(null)
+    },
+  })
+
+  const handleDeleteDoc = (docId) => {
+    if (!window.confirm('Delete this document? The doctor will be notified. This cannot be undone.')) return
+    setDeletingDocId(docId)
+    deleteDocMutation.mutate(docId)
+  }
 
   return (
     <>
@@ -213,30 +236,54 @@ function DoctorCard({ doctor, onAction, actionLoading }) {
               {doctor.documents?.length > 0 ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {doctor.documents.map(doc => (
-                    <a
+                    <div
                       key={doc.id}
-                      href={doc.file_url}
-                      target="_blank"
-                      rel="noreferrer"
                       className="flex items-center justify-between gap-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 hover:border-primary-300 dark:hover:border-primary-700 hover:shadow-sm transition-all group"
                     >
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-primary-50 dark:bg-primary-950 rounded-lg flex items-center justify-center">
+                      <a
+                        href={doc.file_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-2 flex-1 min-w-0"
+                      >
+                        <div className="w-8 h-8 bg-primary-50 dark:bg-primary-950 rounded-lg flex items-center justify-center flex-shrink-0">
                           <FileText className="w-4 h-4 text-primary-600 dark:text-primary-400" />
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                             {DOC_TYPE_LABELS[doc.document_type] || doc.document_type}
                           </p>
-                          {doc.is_verified && (
+                          {doc.is_verified ? (
                             <p className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                               <CheckCircle className="w-3 h-3" /> Verified
                             </p>
+                          ) : (
+                            <p className="text-xs text-amber-600 dark:text-amber-400">Pending review</p>
                           )}
                         </div>
+                      </a>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <a
+                          href={doc.file_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-primary-600 hover:bg-primary-50 dark:hover:bg-primary-950 transition-colors"
+                          title="View document"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                        <button
+                          onClick={() => handleDeleteDoc(doc.id)}
+                          disabled={deletingDocId === doc.id}
+                          className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950 transition-colors disabled:opacity-40"
+                          title="Delete document"
+                        >
+                          {deletingDocId === doc.id
+                            ? <span className="w-3.5 h-3.5 border-2 border-red-400 border-t-transparent rounded-full animate-spin" />
+                            : <Trash2 className="w-3.5 h-3.5" />}
+                        </button>
                       </div>
-                      <ExternalLink className="w-4 h-4 text-gray-400 group-hover:text-primary-600 transition-colors" />
-                    </a>
+                    </div>
                   ))}
                 </div>
               ) : (
@@ -310,8 +357,14 @@ function DoctorCard({ doctor, onAction, actionLoading }) {
 }
 
 export default function AdminDoctors() {
-  const [statusFilter, setStatusFilter] = useState('pending')
+  const [searchParams] = useSearchParams()
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get('tab') || 'pending')
   const [search, setSearch] = useState('')
+
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab) setStatusFilter(tab)
+  }, [searchParams])
   const qc = useQueryClient()
 
   const { data, isLoading } = useQuery({

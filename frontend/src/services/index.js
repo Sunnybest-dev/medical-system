@@ -37,9 +37,13 @@ export const doctorService = {
   detail: (id) => api.get(`/doctors/${id}/`),
   getProfile: () => api.get('/doctors/profile/'),
   updateProfile: (data) => api.patch('/doctors/profile/', data),
-  uploadDocument: (formData) => api.post('/doctors/documents/upload/', formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
-  }),
+  getDocuments: () => api.get('/doctors/documents/'),
+  uploadDocument: (formData, onUploadProgress) =>
+    api.post('/doctors/documents/upload/', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress,
+    }),
+  // Note: doctors cannot delete their own documents — only admins can
   getAvailability: () => api.get('/doctors/availability/'),
   setAvailability: (data) => api.post('/doctors/availability/', data),
   updateAvailability: (id, data) => api.patch(`/doctors/availability/${id}/`, data),
@@ -110,8 +114,9 @@ export const notificationService = {
 export const adminService = {
   getDashboard: () => api.get('/admin-panel/dashboard/'),
   getAnalytics: () => api.get('/admin-panel/analytics/'),
-  getDoctorVerifications: (status) => api.get('/admin-panel/doctors/verify/', { params: { status } }),
+  getDoctorVerifications: (status) => api.get('/admin-panel/doctors/pending/', { params: { status } }),
   verifyDoctor: (id, data) => api.post(`/admin-panel/doctors/${id}/action/`, data),
+  deleteDocument: (docId) => api.delete(`/admin-panel/documents/${docId}/delete/`),
   getUsers: (role) => api.get('/admin-panel/users/', { params: { role } }),
   userAction: (id, action) => api.post(`/admin-panel/users/${id}/action/`, { action }),
 }

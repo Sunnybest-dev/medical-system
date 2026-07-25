@@ -45,7 +45,9 @@ export default function AdminUsers() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">User Management</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Manage patient and doctor accounts</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+          {roleFilter === 'doctor' ? 'Deactivate doctor accounts (approval is managed in Doctor Verification)' : 'Activate or deactivate patient accounts'}
+        </p>
       </div>
 
       {/* Summary */}
@@ -54,7 +56,7 @@ export default function AdminUsers() {
           {[
             { label: 'Total', value: data.length, color: 'bg-primary-50 dark:bg-primary-950 text-primary-700 dark:text-primary-300' },
             { label: 'Active', value: activeCount, color: 'bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300' },
-            { label: 'Inactive', value: inactiveCount, color: 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300' },
+            { label: roleFilter === 'doctor' ? 'Deactivated' : 'Inactive', value: inactiveCount, color: 'bg-red-50 dark:bg-red-950 text-red-700 dark:text-red-300' },
           ].map(({ label, value, color }) => (
             <div key={label} className={`rounded-2xl p-4 text-center ${color}`}>
               <p className="text-2xl font-bold">{value}</p>
@@ -147,17 +149,32 @@ export default function AdminUsers() {
                   )}>
                     {user.is_active ? 'Active' : 'Inactive'}
                   </span>
-                  <Button
-                    size="sm"
-                    variant={user.is_active ? 'danger' : 'secondary'}
-                    onClick={() => actionMutation.mutate({ id: user.id, action: user.is_active ? 'deactivate' : 'activate' })}
-                    loading={actionMutation.isPending}
-                  >
-                    {user.is_active
-                      ? <><UserX className="w-3.5 h-3.5" /> Deactivate</>
-                      : <><UserCheck className="w-3.5 h-3.5" /> Activate</>
-                    }
-                  </Button>
+                  {roleFilter === 'patient' ? (
+                    <Button
+                      size="sm"
+                      variant={user.is_active ? 'danger' : 'secondary'}
+                      onClick={() => actionMutation.mutate({ id: user.id, action: user.is_active ? 'deactivate' : 'activate' })}
+                      loading={actionMutation.isPending}
+                    >
+                      {user.is_active
+                        ? <><UserX className="w-3.5 h-3.5" /> Deactivate</>
+                        : <><UserCheck className="w-3.5 h-3.5" /> Activate</>
+                      }
+                    </Button>
+                  ) : (
+                    // Doctors: only deactivate is allowed here.
+                    // Approval/reinstatement is handled via Doctor Verification page.
+                    user.is_active && (
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        onClick={() => actionMutation.mutate({ id: user.id, action: 'deactivate' })}
+                        loading={actionMutation.isPending}
+                      >
+                        <UserX className="w-3.5 h-3.5" /> Deactivate
+                      </Button>
+                    )
+                  )}
                 </div>
               </div>
             ))}

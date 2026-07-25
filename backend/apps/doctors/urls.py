@@ -4,7 +4,9 @@ from . import views
 urlpatterns = [
     path('specializations/', views.SpecializationListView.as_view(), name='specializations'),
     path('profile/', views.DoctorProfileView.as_view(), name='doctor-profile'),
+    path('documents/', views.DoctorDocumentListView.as_view(), name='doctor-doc-list'),
     path('documents/upload/', views.DoctorDocumentUploadView.as_view(), name='doctor-doc-upload'),
+    # No delete endpoint for doctors — only admins can delete documents
     path('availability/', views.DoctorAvailabilityView.as_view(), name='doctor-availability'),
     path('availability/<uuid:pk>/', views.DoctorAvailabilityDetailView.as_view(), name='doctor-availability-detail'),
     path('status/', views.DoctorStatusUpdateView.as_view(), name='doctor-status'),

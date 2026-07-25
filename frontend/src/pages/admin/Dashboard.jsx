@@ -35,7 +35,10 @@ export default function AdminDashboard() {
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Platform overview and management</p>
         </div>
         {stats.pending_verifications > 0 && (
-          <Link to="/admin/doctors" className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 px-4 py-2 rounded-xl text-sm font-medium hover:bg-amber-100 transition-colors">
+          <Link
+            to={`/admin/doctors?tab=${stats.pending_count > 0 ? 'pending' : 'under_review'}`}
+            className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 px-4 py-2 rounded-xl text-sm font-medium hover:bg-amber-100 transition-colors"
+          >
             <Clock className="w-4 h-4" />
             {stats.pending_verifications} pending verification{stats.pending_verifications !== 1 ? 's' : ''}
           </Link>
