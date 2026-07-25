@@ -4,13 +4,32 @@ from django.contrib.auth.password_validation import validate_password
 from .models import User
 
 
+class DoctorProfileSummarySerializer(serializers.Serializer):
+    """Minimal doctor profile fields embedded in the user object."""
+    verification_status = serializers.CharField()
+    online_status = serializers.CharField()
+    average_rating = serializers.DecimalField(max_digits=3, decimal_places=2)
+    total_consultations = serializers.IntegerField()
+    total_earnings = serializers.DecimalField(max_digits=12, decimal_places=2)
+
+
 class UserSerializer(serializers.ModelSerializer):
+    doctor_profile = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = ['id', 'email', 'first_name', 'last_name', 'role', 'phone_number',
                   'country', 'date_of_birth', 'gender', 'avatar', 'is_email_verified',
-                  'created_at']
+                  'created_at', 'doctor_profile']
         read_only_fields = ['id', 'created_at', 'is_email_verified']
+
+    def get_doctor_profile(self, obj):
+        if obj.role != 'doctor':
+            return None
+        try:
+            return DoctorProfileSummarySerializer(obj.doctor_profile).data
+        except Exception:
+            return None
 
 
 class PatientRegisterSerializer(serializers.ModelSerializer):

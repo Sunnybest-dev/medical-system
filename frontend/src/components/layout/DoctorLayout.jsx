@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   LayoutDashboard, Calendar, Clock, Users, MessageSquare,
   FileText, BarChart2, User, Menu, X, LogOut, Bell
@@ -34,9 +34,18 @@ const statusColors = {
 export default function DoctorLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [dark, setDark] = useDarkMode()
-  const { user, tokens, logout } = useAuthStore()
+  const { user, tokens, logout, updateUser } = useAuthStore()
   const navigate = useNavigate()
   const doctorStatus = user?.doctor_profile?.online_status || 'offline'
+
+  // Sync latest user data (including verification_status) from the server on every mount.
+  // This ensures the doctor sees their updated status immediately after admin approval
+  // without needing to log out and back in.
+  useEffect(() => {
+    authService.me()
+      .then(r => updateUser(r.data))
+      .catch(() => {})
+  }, [])
 
   const handleLogout = async () => {
     try { await authService.logout(tokens?.refresh) } catch {}

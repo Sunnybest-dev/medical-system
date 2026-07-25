@@ -8,7 +8,11 @@ import { formatDateTime, appointmentStatusConfig } from '@/utils'
 
 export default function DoctorDashboard() {
   const { user } = useAuthStore()
-  const profile = user?.doctor_profile
+
+  const { data: profile } = useQuery({
+    queryKey: ['doctor-profile'],
+    queryFn: () => doctorService.getProfile().then(r => r.data),
+  })
 
   const { data: todayApts } = useQuery({
     queryKey: ['doctor-today'],
