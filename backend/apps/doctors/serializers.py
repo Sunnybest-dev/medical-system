@@ -54,10 +54,11 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
 
 class DoctorProfileUpdateSerializer(serializers.ModelSerializer):
     specialization_id = serializers.UUIDField(required=False, allow_null=True)
+    specialization_other = serializers.CharField(required=False, allow_blank=True, max_length=100, write_only=True)
 
     class Meta:
         model = DoctorProfile
-        fields = ['specialization_id', 'medical_license_number', 'medical_council_registration',
+        fields = ['specialization_id', 'specialization_other', 'medical_license_number', 'medical_council_registration',
                   'years_of_experience', 'consultation_fee', 'languages_spoken', 'bio', 'education']
 
     def validate_specialization_id(self, value):
@@ -69,8 +70,12 @@ class DoctorProfileUpdateSerializer(serializers.ModelSerializer):
         return value
 
     def update(self, instance, validated_data):
+        spec_other = validated_data.pop('specialization_other', None)
         spec_id = validated_data.pop('specialization_id', None)
-        if spec_id:
+        if spec_other:
+            spec, _ = Specialization.objects.get_or_create(name=spec_other.strip())
+            instance.specialization = spec
+        elif spec_id:
             instance.specialization = Specialization.objects.get(id=spec_id)
         return super().update(instance, validated_data)
 

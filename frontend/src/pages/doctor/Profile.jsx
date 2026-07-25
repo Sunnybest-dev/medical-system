@@ -19,6 +19,7 @@ const DOC_TYPES = [
 export default function DoctorProfilePage() {
   const qc = useQueryClient()
   const [uploadType, setUploadType] = useState('government_id')
+  const [showOtherSpec, setShowOtherSpec] = useState(false)
 
   const { data: profile } = useQuery({
     queryKey: ['doctor-profile'],
@@ -30,18 +31,36 @@ export default function DoctorProfilePage() {
     queryFn: () => doctorService.getSpecializations().then((r) => r.data),
   })
 
-  const { register, handleSubmit, reset } = useForm()
+  const { register, handleSubmit, reset, setValue } = useForm()
 
   useEffect(() => {
-    if (profile) reset({
-      medical_license_number: profile.medical_license_number,
-      medical_council_registration: profile.medical_council_registration,
-      years_of_experience: profile.years_of_experience,
-      consultation_fee: profile.consultation_fee,
-      bio: profile.bio,
-      specialization_id: profile.specialization?.id,
-    })
+    if (profile) {
+      reset({
+        medical_license_number: profile.medical_license_number,
+        medical_council_registration: profile.medical_council_registration,
+        years_of_experience: profile.years_of_experience,
+        consultation_fee: profile.consultation_fee,
+        bio: profile.bio,
+        specialization_id: profile.specialization?.id,
+      })
+    }
   }, [profile])
+
+  const handleSpecializationChange = (e) => {
+    const isOther = e.target.value === '__other__'
+    setShowOtherSpec(isOther)
+    if (isOther) setValue('specialization_id', '')
+  }
+
+  const onSubmit = (data) => {
+    if (showOtherSpec) {
+      const { specialization_id, ...rest } = data
+      updateMutation.mutate(rest)
+    } else {
+      const { specialization_other, ...rest } = data
+      updateMutation.mutate(rest)
+    }
+  }
 
   const updateMutation = useMutation({
     mutationFn: (data) => doctorService.updateProfile(data),
@@ -76,13 +95,21 @@ export default function DoctorProfilePage() {
       {/* Professional Info */}
       <Card>
         <h2 className="font-semibold text-gray-900 mb-4">Professional Information</h2>
-        <form onSubmit={handleSubmit(updateMutation.mutate)} className="space-y-4">
-          <Select label="Specialization" {...register('specialization_id')}>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <Select label="Specialization" {...register('specialization_id')} onChange={handleSpecializationChange}>
             <option value="">Select specialization</option>
             {(specializations?.results || specializations || []).map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
             ))}
+            <option value="__other__">Other (not listed)</option>
           </Select>
+          {showOtherSpec && (
+            <Input
+              label="Specify your specialization"
+              placeholder="e.g. Pediatric Cardiology"
+              {...register('specialization_other')}
+            />
+          )}
           <div className="grid grid-cols-2 gap-4">
             <Input label="Medical License Number" {...register('medical_license_number')} />
             <Input label="Council Registration Number" {...register('medical_council_registration')} />

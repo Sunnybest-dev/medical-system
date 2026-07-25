@@ -183,10 +183,11 @@ class DoctorRatingView(generics.ListCreateAPIView):
         return DoctorRating.objects.filter(doctor_id=self.kwargs['doctor_id'])
 
     def perform_create(self, serializer):
+        from django.db.models import Avg
         doctor = DoctorProfile.objects.get(id=self.kwargs['doctor_id'])
-        rating_obj = serializer.save(doctor=doctor, patient=self.request.user)
-        # Update average rating
-        ratings = DoctorRating.objects.filter(doctor=doctor)
-        avg = sum(r.rating for r in ratings) / ratings.count()
+        serializer.save(doctor=doctor, patient=self.request.user)
+        # Recalculate average rating using a single DB aggregate — avoids
+        # loading every rating row into Python memory.
+        avg = DoctorRating.objects.filter(doctor=doctor).aggregate(avg=Avg('rating'))['avg'] or 0
         doctor.average_rating = round(avg, 2)
-        doctor.save()
+        doctor.save(update_fields=['average_rating'])

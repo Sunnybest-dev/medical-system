@@ -84,6 +84,9 @@ class JitsiTokenView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, pk):
+        from datetime import timedelta
+        import jwt as pyjwt
+
         try:
             appointment = Appointment.objects.select_related(
                 'patient', 'doctor__user'
@@ -101,7 +104,6 @@ class JitsiTokenView(APIView):
             )
 
         # Allow joining within 15 minutes before and 60 minutes after scheduled time
-        from datetime import timedelta
         now = timezone.now()
         window_start = appointment.scheduled_at - timedelta(minutes=15)
         window_end = appointment.scheduled_at + timedelta(minutes=appointment.duration_minutes + 60)
@@ -123,8 +125,6 @@ class JitsiTokenView(APIView):
         # Build JWT — fall back to no token if secret not configured
         token = None
         if secret:
-            import jwt as pyjwt
-            from datetime import timedelta
             now = timezone.now()
             payload = {
                 'iss': app_id,

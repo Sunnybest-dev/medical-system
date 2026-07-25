@@ -25,20 +25,53 @@ class AuthRateThrottle(AnonRateThrottle):
 
 
 class AdminRegisterView(generics.CreateAPIView):
+    # Kept AllowAny intentionally — access is gated by ADMIN_SECRET_KEY.
+    # Apply the auth throttle so brute-forcing the secret is rate-limited.
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [AuthRateThrottle]
 
     def create(self, request, *args, **kwargs):
-        secret = request.data.get('admin_secret', '')
-        expected = getattr(settings, 'ADMIN_SECRET_KEY', 'mediai-admin-secret')
-        if secret != expected:
-            return Response({'error': 'Invalid admin secret key.'}, status=status.HTTP_403_FORBIDDEN)
-        data = {k: v for k, v in request.data.items() if k != 'admin_secret'}
+        import hmac
         from django.contrib.auth.password_validation import validate_password
         from django.core.exceptions import ValidationError
+
+        secret = request.data.get('admin_secret', '')
+        expected = getattr(settings, 'ADMIN_SECRET_KEY', '')
+
+        # Reject if no secret is configured in the environment
+        if not expected:
+            return Response(
+                {'error': 'Admin registration is disabled.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Constant-time comparison to prevent timing attacks
+        if not hmac.compare_digest(str(secret), str(expected)):
+            return Response(
+                {'error': 'Invalid admin secret key.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        required_fields = ['email', 'password', 'first_name', 'last_name']
+        data = {k: v for k, v in request.data.items() if k != 'admin_secret'}
+        missing = [f for f in required_fields if not data.get(f)]
+        if missing:
+            return Response(
+                {'error': f'Missing required fields: {", ".join(missing)}'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         try:
             validate_password(data.get('password', ''))
         except ValidationError as e:
             return Response({'error': list(e.messages)}, status=status.HTTP_400_BAD_REQUEST)
+
+        if User.objects.filter(email=data['email']).exists():
+            return Response(
+                {'error': 'A user with this email already exists.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         user = User.objects.create_user(
             email=data['email'],
             password=data['password'],

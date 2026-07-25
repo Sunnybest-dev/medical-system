@@ -21,11 +21,16 @@ class CreateEmergencyView(APIView):
             **serializer.validated_data
         )
 
-        # Find available emergency-duty doctors
-        emergency_doctors = DoctorProfile.objects.filter(
-            online_status=DoctorProfile.OnlineStatus.EMERGENCY_DUTY,
-            verification_status=DoctorProfile.VerificationStatus.APPROVED
-        ).order_by('?')  # Random selection
+        # Find available emergency-duty doctors — use a stable ordering
+        # (pk) instead of ORDER BY RANDOM() which is slow on large tables.
+        # We pick a random doctor in Python from a small capped queryset.
+        import random
+        emergency_doctors = list(
+            DoctorProfile.objects.filter(
+                online_status=DoctorProfile.OnlineStatus.EMERGENCY_DUTY,
+                verification_status=DoctorProfile.VerificationStatus.APPROVED,
+            ).select_related('user').only('id', 'user', 'consultation_fee')[:20]
+        )
 
         response_data = {
             'emergency': EmergencyRequestSerializer(emergency).data,
@@ -36,8 +41,8 @@ class CreateEmergencyView(APIView):
         if emergency.emergency_type == EmergencyRequest.EmergencyType.CHILDBIRTH:
             response_data['special_notice'] = EmergencyRequest.CHILDBIRTH_DISCLAIMER
 
-        if emergency_doctors.exists():
-            doctor = emergency_doctors.first()
+        if emergency_doctors:
+            doctor = random.choice(emergency_doctors)
             appointment = Appointment.objects.create(
                 patient=request.user,
                 doctor=doctor,

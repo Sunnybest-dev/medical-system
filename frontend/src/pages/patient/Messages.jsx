@@ -25,7 +25,11 @@ function ChatWindow({ conversation }) {
   }, [history])
 
   useEffect(() => {
-    const ws = new WebSocket(getWsUrl(`/ws/chat/${conversation.id}/?token=${tokens?.access}`))
+    // Re-connect whenever the conversation changes OR the access token rotates.
+    // Using the token value (not the object reference) as the dependency ensures
+    // the WebSocket is always opened with a fresh, valid token.
+    const accessToken = tokens?.access
+    const ws = new WebSocket(getWsUrl(`/ws/chat/${conversation.id}/?token=${accessToken}`))
     wsRef.current = ws
 
     ws.onmessage = (e) => {
@@ -39,7 +43,7 @@ function ChatWindow({ conversation }) {
     }
 
     return () => ws.close()
-  }, [conversation.id])
+  }, [conversation.id, tokens?.access])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })

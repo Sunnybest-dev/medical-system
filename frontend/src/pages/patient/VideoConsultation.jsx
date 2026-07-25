@@ -22,7 +22,7 @@ export default function VideoConsultation() {
   useEffect(() => {
     if (!jitsiData || !jitsiRef.current) return
 
-    // Remove any existing Jitsi instance
+    // Dispose any existing Jitsi instance before creating a new one
     if (apiRef.current) {
       apiRef.current.dispose()
       apiRef.current = null
@@ -64,11 +64,10 @@ export default function VideoConsultation() {
       }
     }
 
-    // Load Jitsi script if not already loaded
     if (window.JitsiMeetExternalAPI) {
       initJitsi()
     } else {
-      // Remove any existing script to avoid duplicates
+      // Remove any stale script tag before injecting a fresh one
       const existing = document.getElementById('jitsi-script')
       if (existing) existing.remove()
 
@@ -82,10 +81,17 @@ export default function VideoConsultation() {
     }
 
     return () => {
+      // Dispose the Jitsi API instance
       if (apiRef.current) {
         apiRef.current.dispose()
         apiRef.current = null
       }
+      // Remove the injected script tag so it doesn't accumulate across
+      // remounts (e.g. navigating away and back to the video page).
+      const scriptTag = document.getElementById('jitsi-script')
+      if (scriptTag) scriptTag.remove()
+      // Clear the global so the next mount re-loads it cleanly
+      delete window.JitsiMeetExternalAPI
     }
   }, [jitsiData])
 
