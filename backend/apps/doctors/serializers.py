@@ -44,6 +44,7 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
     specialization = SpecializationSerializer(read_only=True)
     specialization_id = serializers.UUIDField(write_only=True, required=False)
     availability = DoctorAvailabilitySerializer(many=True, read_only=True)
+    documents = DoctorDocumentSerializer(many=True, read_only=True)
 
     class Meta:
         model = DoctorProfile
