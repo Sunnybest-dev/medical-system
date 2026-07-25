@@ -4,8 +4,18 @@ from apps.doctors.serializers import DoctorListSerializer
 from apps.users.serializers import UserSerializer
 
 
+class PatientSummarySerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
+    email = serializers.EmailField()
+    avatar = serializers.CharField()
+    country = serializers.CharField()
+
+
 class AppointmentSerializer(serializers.ModelSerializer):
     patient_name = serializers.CharField(source='patient.full_name', read_only=True)
+    patient = PatientSummarySerializer(read_only=True)
     doctor_name = serializers.CharField(source='doctor.user.full_name', read_only=True)
     doctor_specialization = serializers.CharField(source='doctor.specialization.name', read_only=True)
 

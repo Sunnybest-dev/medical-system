@@ -32,11 +32,17 @@ class DoctorVacationSerializer(serializers.ModelSerializer):
 
 class DoctorRatingSerializer(serializers.ModelSerializer):
     patient_name = serializers.CharField(source='patient.full_name', read_only=True)
+    image = serializers.ImageField(write_only=True, required=False)
 
     class Meta:
         model = DoctorRating
         fields = '__all__'
         read_only_fields = ['id', 'doctor', 'patient', 'created_at']
+
+    def validate(self, attrs):
+        if not attrs.get('review') and not attrs.get('image'):
+            raise serializers.ValidationError('Provide at least a review text or an image.')
+        return attrs
 
 
 class DoctorProfileSerializer(serializers.ModelSerializer):

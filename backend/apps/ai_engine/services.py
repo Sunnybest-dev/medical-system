@@ -363,12 +363,7 @@ class OpenFDAService:
 
 
 class HealthAssessmentService:
-    DISCLAIMER = (
-        "CRITICAL: You are an AI health information assistant. "
-        "NEVER use the word 'diagnosis' or 'diagnose'. "
-        "Always use 'possible conditions' instead. "
-        "This is for informational purposes only."
-    )
+    DISCLAIMER = ''
 
     def __init__(self):
         self.infermedica = InfermedicaProvider()
@@ -454,10 +449,6 @@ Return ONLY a JSON array of 5 question strings:
 
         result['suggested_medications'] = self._enrich_medications(
             result.get('suggested_medications', [])
-        )
-        result['disclaimer'] = (
-            'IMPORTANT MEDICAL DISCLAIMER: This assessment is for informational purposes only. '
-            'It does NOT constitute a medical diagnosis. Always consult a qualified healthcare professional.'
         )
         return result
 
@@ -578,7 +569,7 @@ RULES:
             "recommendations": "Call emergency services or go to the nearest ER immediately." if is_emergency else "Schedule an appointment with your doctor for a proper evaluation.",
             "when_to_seek_emergency": "If symptoms worsen rapidly, seek emergency care immediately.",
             "general_care_tips": ["Rest and stay hydrated", "Monitor your symptoms closely", "Seek medical attention if symptoms worsen"],
-            "disclaimer": "This assessment is for informational purposes only and does NOT constitute a medical diagnosis."
+            "disclaimer": ""
         }
 
     def get_medication_info(self, medication_name: str) -> dict:
@@ -621,7 +612,7 @@ No dosage. No prescribing. Information only."""
                 'contraindications': fda_data.get('contraindications', []),
                 'overdose_warning': fda_data.get('overdose_warning', ''),
                 'warnings': fda_data.get('warnings', []),
-                'disclaimer': 'This information is sourced from FDA and RxNorm databases. Always consult your doctor or pharmacist before taking any medication.',
+                'disclaimer': '',
             }
 
         if not self.gemini.available:

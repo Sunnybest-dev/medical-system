@@ -89,10 +89,4 @@ export function StatCard({ title, value, icon: Icon, color = 'primary', trend })
   )
 }
 
-export function MedicalDisclaimer({ className }) {
-  return (
-    <div className={cn('bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg p-3 text-xs text-amber-800 dark:text-amber-300', className)}>
-      <strong>⚠️ Medical Disclaimer:</strong> This information is for educational purposes only and does NOT constitute medical advice or diagnosis. Always consult a qualified healthcare professional for medical concerns.
-    </div>
-  )
-}
+export function MedicalDisclaimer() { return null }

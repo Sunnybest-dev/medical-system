@@ -12,11 +12,35 @@ class MessageSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'sender', 'created_at']
 
 
+class ConversationPatientSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
+    email = serializers.EmailField()
+    avatar = serializers.CharField()
+
+
+class ConversationDoctorUserSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
+    avatar = serializers.CharField()
+
+
+class ConversationDoctorSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    user = ConversationDoctorUserSerializer()
+    specialization = serializers.SerializerMethodField()
+
+    def get_specialization(self, obj):
+        if obj.specialization:
+            return {'name': obj.specialization.name}
+        return None
+
+
 class ConversationSerializer(serializers.ModelSerializer):
-    patient_name = serializers.CharField(source='patient.full_name', read_only=True)
-    patient_avatar = serializers.CharField(source='patient.avatar', read_only=True)
-    doctor_name = serializers.CharField(source='doctor.user.full_name', read_only=True)
-    doctor_avatar = serializers.CharField(source='doctor.user.avatar', read_only=True)
+    patient = ConversationPatientSerializer(read_only=True)
+    doctor = ConversationDoctorSerializer(read_only=True)
     last_message = serializers.SerializerMethodField()
     unread_count = serializers.SerializerMethodField()
 

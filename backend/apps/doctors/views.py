@@ -1,4 +1,4 @@
-from rest_framework import generics, permissions, status, filters
+from rest_framework import generics, permissions, serializers, status, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -189,6 +189,7 @@ class DoctorVacationView(generics.ListCreateAPIView):
 class DoctorRatingView(generics.ListCreateAPIView):
     serializer_class = DoctorRatingSerializer
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
 
     def get_queryset(self):
         return DoctorRating.objects.filter(doctor_id=self.kwargs['doctor_id'])
@@ -196,9 +197,17 @@ class DoctorRatingView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         from django.db.models import Avg
         doctor = DoctorProfile.objects.get(id=self.kwargs['doctor_id'])
-        serializer.save(doctor=doctor, patient=self.request.user)
-        # Recalculate average rating using a single DB aggregate — avoids
-        # loading every rating row into Python memory.
+        image_file = serializer.validated_data.pop('image', None)
+        image_url = ''
+        if image_file:
+            try:
+                result = cloudinary.uploader.upload(image_file, folder='mediai/ratings', resource_type='image')
+                image_url = result['secure_url']
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f'Cloudinary upload failed: {e}')
+                raise serializers.ValidationError({'image': 'Image upload failed. Please try again.'})
+        serializer.save(doctor=doctor, patient=self.request.user, image_url=image_url)
         avg = DoctorRating.objects.filter(doctor=doctor).aggregate(avg=Avg('rating'))['avg'] or 0
         doctor.average_rating = round(avg, 2)
         doctor.save(update_fields=['average_rating'])

@@ -33,11 +33,7 @@ class AIAssessment(models.Model):
     medication_info = models.JSONField(default=list)
     recommendations = models.TextField()
     ai_raw_response = models.TextField(blank=True)
-    disclaimer = models.TextField(
-        default="IMPORTANT MEDICAL DISCLAIMER: This AI assessment is for informational purposes only. "
-                "It does NOT constitute a medical diagnosis. The possible conditions listed are not confirmed diagnoses. "
-                "Always consult a qualified healthcare professional for proper medical evaluation and treatment."
-    )
+    disclaimer = models.TextField(blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

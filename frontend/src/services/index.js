@@ -84,7 +84,7 @@ export const aiService = {
 export const messagingService = {
   getConversations: () => api.get('/messages/conversations/'),
   getConversation: (id) => api.get(`/messages/conversations/${id}/`),
-  createConversation: (data) => api.post('/messages/conversations/', data),
+  createConversation: (data) => api.post('/messages/conversations/create/', data),
   getMessages: (conversationId) => api.get(`/messages/conversations/${conversationId}/messages/`),
   markRead: (conversationId) => api.post(`/messages/conversations/${conversationId}/read/`),
 }

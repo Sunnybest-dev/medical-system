@@ -23,10 +23,13 @@ class ConversationListView(generics.ListAPIView):
 
     def get_queryset(self):
         user = self.request.user
+        qs = Conversation.objects.select_related(
+            'patient', 'doctor__user', 'doctor__specialization'
+        )
         if user.role == User.Role.PATIENT:
-            return Conversation.objects.filter(patient=user, is_active=True)
+            return qs.filter(patient=user, is_active=True)
         elif user.role == User.Role.DOCTOR:
-            return Conversation.objects.filter(doctor__user=user, is_active=True)
+            return qs.filter(doctor__user=user, is_active=True)
         return Conversation.objects.none()
 
 
@@ -54,6 +57,22 @@ class ConversationCreateView(APIView):
                         status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
 
+class ConversationMarkReadView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, conversation_id):
+        user = request.user
+        try:
+            if user.role == User.Role.PATIENT:
+                conv = Conversation.objects.get(id=conversation_id, patient=user)
+            else:
+                conv = Conversation.objects.get(id=conversation_id, doctor__user=user)
+            conv.messages.filter(is_read=False).exclude(sender=user).update(is_read=True)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Conversation.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+
 class MessageListView(generics.ListAPIView):
     serializer_class = MessageSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -66,7 +85,6 @@ class MessageListView(generics.ListAPIView):
                 conv = Conversation.objects.get(id=conversation_id, patient=user)
             else:
                 conv = Conversation.objects.get(id=conversation_id, doctor__user=user)
-            # Mark messages as read
             conv.messages.filter(is_read=False).exclude(sender=user).update(is_read=True)
             return conv.messages.all()
         except Conversation.DoesNotExist:
