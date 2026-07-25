@@ -32,6 +32,11 @@ class ConversationListView(generics.ListAPIView):
             return qs.filter(doctor__user=user, is_active=True)
         return Conversation.objects.none()
 
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
 
 class ConversationCreateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
