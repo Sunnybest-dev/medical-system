@@ -1,6 +1,7 @@
 from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.tokens import RefreshToken
@@ -154,6 +155,33 @@ class MeView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+
+class AvatarUploadView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        file = request.FILES.get('avatar')
+        if not file:
+            return Response({'error': 'No file provided.'}, status=status.HTTP_400_BAD_REQUEST)
+        if file.content_type not in ['image/jpeg', 'image/png', 'image/webp']:
+            return Response({'error': 'Only JPG, PNG or WebP images are allowed.'}, status=status.HTTP_400_BAD_REQUEST)
+        if file.size > 5 * 1024 * 1024:
+            return Response({'error': 'Image must be under 5 MB.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            import cloudinary.uploader
+            result = cloudinary.uploader.upload(
+                file, folder='mediai/avatars', resource_type='image',
+                transformation=[{'width': 400, 'height': 400, 'crop': 'fill', 'gravity': 'face'}]
+            )
+            request.user.avatar = result['secure_url']
+            request.user.save(update_fields=['avatar'])
+            return Response({'avatar': result['secure_url']})
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f'Avatar upload failed: {e}')
+            return Response({'error': 'Upload failed. Please try again.'}, status=status.HTTP_502_BAD_GATEWAY)
 
 
 class VerifyEmailView(APIView):

@@ -1,17 +1,18 @@
 import { useForm } from 'react-hook-form'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { User, Save } from 'lucide-react'
+import { User, Save, Camera } from 'lucide-react'
 import { patientService, authService } from '@/services'
 import { useAuthStore } from '@/store/authStore'
-import { Card } from '@/components/ui'
+import { Card, Avatar } from '@/components/ui'
 import { Input, Select, Textarea } from '@/components/ui/FormFields'
 import Button from '@/components/ui/Button'
 import toast from 'react-hot-toast'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 
 export default function PatientProfile() {
   const { user, updateUser } = useAuthStore()
   const qc = useQueryClient()
+  const avatarRef = useRef(null)
 
   const { data: profile } = useQuery({
     queryKey: ['patient-profile'],
@@ -41,15 +42,55 @@ export default function PatientProfile() {
     onError: () => toast.error('Update failed'),
   })
 
+  const avatarMutation = useMutation({
+    mutationFn: (file) => {
+      const fd = new FormData()
+      fd.append('avatar', file)
+      return authService.uploadAvatar(fd)
+    },
+    onSuccess: ({ data }) => { updateUser({ avatar: data.avatar }); toast.success('Profile photo updated!') },
+    onError: () => toast.error('Photo upload failed'),
+  })
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+      <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
         <User className="w-5 h-5 text-primary-600" /> My Profile
       </h1>
 
+      {/* Avatar */}
+      <Card>
+        <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Profile Photo</h2>
+        <div className="flex items-center gap-5">
+          <div className="relative">
+            <Avatar name={`${user?.first_name} ${user?.last_name}`} src={user?.avatar} size="xl" />
+            {avatarMutation.isPending && (
+              <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+          </div>
+          <div>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Upload a clear photo of yourself</p>
+            <label className="inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium px-4 py-2 rounded-xl cursor-pointer transition-colors">
+              <Camera className="w-4 h-4" />
+              {avatarMutation.isPending ? 'Uploading...' : 'Change Photo'}
+              <input
+                ref={avatarRef}
+                type="file"
+                className="hidden"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(e) => e.target.files[0] && avatarMutation.mutate(e.target.files[0])}
+              />
+            </label>
+            <p className="text-xs text-gray-400 mt-1">JPG, PNG or WebP · Max 5 MB</p>
+          </div>
+        </div>
+      </Card>
+
       {/* Personal Info */}
       <Card>
-        <h2 className="font-semibold text-gray-900 mb-4">Personal Information</h2>
+        <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Personal Information</h2>
         <form onSubmit={handleUser(userMutation.mutate)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <Input label="First Name" {...regUser('first_name')} />
@@ -65,7 +106,7 @@ export default function PatientProfile() {
 
       {/* Health Profile */}
       <Card>
-        <h2 className="font-semibold text-gray-900 mb-4">Health Profile</h2>
+        <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Health Profile</h2>
         <form onSubmit={handleProfile(profileMutation.mutate)} className="space-y-4">
           <Select label="Blood Group" {...regProfile('blood_group')}>
             <option value="">Select blood group</option>

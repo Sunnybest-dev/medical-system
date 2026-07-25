@@ -6,4 +6,5 @@ urlpatterns = [
     path('documents/', views.MedicalDocumentListCreateView.as_view(), name='medical-documents'),
     path('documents/upload/', views.MedicalDocumentUploadView.as_view(), name='document-upload'),
     path('documents/<uuid:pk>/', views.MedicalDocumentDetailView.as_view(), name='document-detail'),
+    path('<uuid:patient_id>/detail/', views.DoctorPatientDetailView.as_view(), name='doctor-patient-detail'),
 ]

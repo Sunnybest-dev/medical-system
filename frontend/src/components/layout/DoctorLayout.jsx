@@ -31,6 +31,13 @@ const statusColors = {
   emergency_duty: 'bg-red-500',
 }
 
+const statusLabels = {
+  available: 'Available',
+  busy: 'Busy',
+  offline: 'Offline',
+  emergency_duty: 'Emergency Duty',
+}
+
 export default function DoctorLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [dark, setDark] = useDarkMode()
@@ -98,7 +105,12 @@ export default function DoctorLayout() {
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">Dr. {user?.first_name} {user?.last_name}</p>
-              <p className="text-xs text-gray-400 capitalize">{doctorStatus.replace('_', ' ')}</p>
+              <p className={cn('text-xs font-medium capitalize', {
+                'text-emerald-500': doctorStatus === 'available',
+                'text-amber-500': doctorStatus === 'busy',
+                'text-red-500': doctorStatus === 'emergency_duty',
+                'text-gray-400': doctorStatus === 'offline',
+              })}>{statusLabels[doctorStatus] || doctorStatus}</p>
             </div>
             <button onClick={handleLogout} className="text-gray-400 hover:text-red-500 transition-colors">
               <LogOut className="w-4 h-4" />

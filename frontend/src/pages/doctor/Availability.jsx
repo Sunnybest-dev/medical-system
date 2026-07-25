@@ -2,10 +2,12 @@ import { useForm } from 'react-hook-form'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Clock, Plus, Trash2, Wifi } from 'lucide-react'
 import { doctorService } from '@/services'
+import { useAuthStore } from '@/store/authStore'
 import { Card, Badge } from '@/components/ui'
 import { Select } from '@/components/ui/FormFields'
 import Button from '@/components/ui/Button'
 import toast from 'react-hot-toast'
+import { cn } from '@/utils'
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
 const STATUS_OPTIONS = [
@@ -17,7 +19,9 @@ const STATUS_OPTIONS = [
 
 export default function DoctorAvailability() {
   const qc = useQueryClient()
+  const { user, updateUser } = useAuthStore()
   const { register, handleSubmit, reset } = useForm()
+  const currentStatus = user?.doctor_profile?.online_status || 'offline'
 
   const { data: availability } = useQuery({
     queryKey: ['availability'],
@@ -37,7 +41,10 @@ export default function DoctorAvailability() {
 
   const statusMutation = useMutation({
     mutationFn: (status) => doctorService.updateStatus(status),
-    onSuccess: () => toast.success('Status updated!'),
+    onSuccess: (_, status) => {
+      updateUser({ doctor_profile: { ...user?.doctor_profile, online_status: status } })
+      toast.success('Status updated!')
+    },
     onError: () => toast.error('Failed to update status'),
   })
 
@@ -55,9 +62,14 @@ export default function DoctorAvailability() {
             <button
               key={value}
               onClick={() => statusMutation.mutate(value)}
-              className={`px-3 py-2 rounded-lg text-sm font-medium border-2 transition-all ${color} border-transparent hover:border-current`}
+              disabled={statusMutation.isPending}
+              className={cn(
+                'px-3 py-2 rounded-lg text-sm font-medium border-2 transition-all',
+                color,
+                currentStatus === value ? 'border-current ring-2 ring-offset-1 ring-current' : 'border-transparent hover:border-current'
+              )}
             >
-              {label}
+              {currentStatus === value ? '● ' : ''}{label}
             </button>
           ))}
         </div>

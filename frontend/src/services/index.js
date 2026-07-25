@@ -9,10 +9,10 @@ export const authService = {
   registerPatient: (data) => api.post('/auth/register/patient/', data),
   registerDoctor: (data) => api.post('/auth/register/doctor/', data),
   registerAdmin: (data) => api.post('/auth/register/admin/', data),
-  // Use plain axios so an expired access token never triggers the refresh interceptor on logout
   logout: (refresh) => axios.post(`${BASE_URL}/auth/logout/`, { refresh }).catch(() => {}),
   me: () => api.get('/auth/me/'),
   updateMe: (data) => api.patch('/auth/me/', data),
+  uploadAvatar: (formData) => api.post('/auth/me/avatar/', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   verifyEmail: (token) => api.post('/auth/verify-email/', { token }),
   forgotPassword: (email) => api.post('/auth/forgot-password/', { email }),
   resetPassword: (data) => api.post('/auth/reset-password/', data),
@@ -29,6 +29,7 @@ export const patientService = {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
   deleteDocument: (id) => api.delete(`/patients/documents/${id}/`),
+  getPatientDetail: (patientId) => api.get(`/patients/${patientId}/detail/`),
 }
 
 // Doctors

@@ -5,8 +5,9 @@ import {
   Upload, Save, CheckCircle, FileText, ExternalLink,
   Clock, AlertCircle, X, ImageIcon, FileBadge, IdCard, Camera,
 } from 'lucide-react'
-import { doctorService } from '@/services'
-import { Card, Badge, Spinner } from '@/components/ui'
+import { doctorService, authService } from '@/services'
+import { useAuthStore } from '@/store/authStore'
+import { Card, Badge, Spinner, Avatar } from '@/components/ui'
 import { Input, Textarea } from '@/components/ui/FormFields'
 import Button from '@/components/ui/Button'
 import { verificationStatusConfig, cn } from '@/utils'
@@ -337,6 +338,18 @@ function SpecializationField({ register, setValue, currentName }) {
 
 export default function DoctorProfilePage() {
   const qc = useQueryClient()
+  const { user, updateUser } = useAuthStore()
+  const avatarInputRef = useRef(null)
+
+  const avatarMutation = useMutation({
+    mutationFn: (file) => {
+      const fd = new FormData()
+      fd.append('avatar', file)
+      return authService.uploadAvatar(fd)
+    },
+    onSuccess: ({ data }) => { updateUser({ avatar: data.avatar }); toast.success('Profile photo updated!') },
+    onError: () => toast.error('Photo upload failed'),
+  })
 
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ['doctor-profile'],
@@ -432,6 +445,43 @@ export default function DoctorProfilePage() {
           </div>
         </div>
       )}
+
+      {/* Avatar — mandatory profile photo */}
+      <Card>
+        <div className="flex items-center gap-2 mb-4">
+          <h2 className="font-semibold text-gray-900 dark:text-white">Profile Photo</h2>
+          {!user?.avatar && (
+            <span className="text-xs bg-red-100 dark:bg-red-950 text-red-600 dark:text-red-400 font-semibold px-2 py-0.5 rounded-full">Required</span>
+          )}
+        </div>
+        <div className="flex items-center gap-5">
+          <div className="relative">
+            <Avatar name={`Dr. ${user?.first_name} ${user?.last_name}`} src={user?.avatar} size="xl" />
+            {avatarMutation.isPending && (
+              <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center">
+                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+          </div>
+          <div>
+            {!user?.avatar && (
+              <p className="text-sm text-red-600 dark:text-red-400 font-medium mb-2">A profile photo is required for patient trust.</p>
+            )}
+            <label className="inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium px-4 py-2 rounded-xl cursor-pointer transition-colors">
+              <Camera className="w-4 h-4" />
+              {avatarMutation.isPending ? 'Uploading...' : user?.avatar ? 'Change Photo' : 'Upload Photo'}
+              <input
+                ref={avatarInputRef}
+                type="file"
+                className="hidden"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(e) => e.target.files[0] && avatarMutation.mutate(e.target.files[0])}
+              />
+            </label>
+            <p className="text-xs text-gray-400 mt-1">JPG, PNG or WebP · Max 5 MB · Face clearly visible</p>
+          </div>
+        </div>
+      </Card>
 
       {/* ── Professional Information ── */}
       <Card>

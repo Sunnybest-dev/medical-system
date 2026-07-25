@@ -13,6 +13,11 @@ class IsPatient(permissions.BasePermission):
         return request.user.role == User.Role.PATIENT
 
 
+class IsDoctor(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.role == User.Role.DOCTOR
+
+
 class PatientProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = PatientProfileSerializer
     permission_classes = [permissions.IsAuthenticated, IsPatient]
@@ -20,6 +25,41 @@ class PatientProfileView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         profile, _ = PatientProfile.objects.get_or_create(user=self.request.user)
         return profile
+
+
+class DoctorPatientDetailView(APIView):
+    """Doctor-facing: full patient details — profile, documents, AI assessments."""
+    permission_classes = [permissions.IsAuthenticated, IsDoctor]
+
+    def get(self, request, patient_id):
+        from apps.appointments.models import Appointment
+        from apps.ai_engine.models import AIAssessment
+        from apps.ai_engine.serializers import AIAssessmentSerializer
+        from apps.users.serializers import UserSerializer
+
+        # Verify the doctor has had an appointment with this patient
+        has_appointment = Appointment.objects.filter(
+            doctor__user=request.user,
+            patient_id=patient_id,
+        ).exists()
+        if not has_appointment:
+            return Response({'error': 'Access denied.'}, status=status.HTTP_403_FORBIDDEN)
+
+        try:
+            patient_user = User.objects.get(id=patient_id)
+        except User.DoesNotExist:
+            return Response({'error': 'Patient not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        profile, _ = PatientProfile.objects.get_or_create(user=patient_user)
+        documents = MedicalDocument.objects.filter(patient=profile)
+        assessments = AIAssessment.objects.filter(patient=patient_user).prefetch_related('symptoms')
+
+        return Response({
+            'user': UserSerializer(patient_user).data,
+            'profile': PatientProfileSerializer(profile).data,
+            'documents': MedicalDocumentSerializer(documents, many=True).data,
+            'assessments': AIAssessmentSerializer(assessments, many=True).data,
+        })
 
 
 class MedicalDocumentListCreateView(generics.ListCreateAPIView):
