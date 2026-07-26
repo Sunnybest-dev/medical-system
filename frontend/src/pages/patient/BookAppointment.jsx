@@ -25,7 +25,11 @@ export default function BookAppointment() {
       toast.success('Appointment booked successfully!')
       navigate('/patient/appointments')
     },
-    onError: (err) => toast.error(err.response?.data?.detail || 'Booking failed'),
+    onError: (err) => {
+      const data = err.response?.data
+      const msg = typeof data === 'string' ? data : data?.detail || data?.non_field_errors?.[0] || Object.values(data || {})?.[0]?.[0] || 'Booking failed'
+      toast.error(msg)
+    },
   })
 
   if (isLoading) return <div className="flex justify-center py-12"><Spinner size="lg" /></div>

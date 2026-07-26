@@ -89,13 +89,26 @@ class DoctorProfileUpdateSerializer(serializers.ModelSerializer):
 
 class DoctorListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for doctor search/listing"""
-    full_name = serializers.CharField(source='user.full_name', read_only=True)
-    avatar = serializers.CharField(source='user.avatar', read_only=True)
-    country = serializers.CharField(source='user.country', read_only=True)
-    specialization_name = serializers.CharField(source='specialization.name', read_only=True)
+    user = serializers.SerializerMethodField()
+    specialization = serializers.SerializerMethodField()
 
     class Meta:
         model = DoctorProfile
-        fields = ['id', 'full_name', 'avatar', 'country', 'specialization_name',
+        fields = ['id', 'user', 'specialization',
                   'years_of_experience', 'consultation_fee', 'languages_spoken',
                   'average_rating', 'total_consultations', 'online_status']
+
+    def get_user(self, obj):
+        return {
+            'id': str(obj.user.id),
+            'first_name': obj.user.first_name,
+            'last_name': obj.user.last_name,
+            'avatar': obj.user.avatar,
+            'country': obj.user.country,
+            'full_name': obj.user.full_name,
+        }
+
+    def get_specialization(self, obj):
+        if obj.specialization:
+            return {'id': str(obj.specialization.id), 'name': obj.specialization.name}
+        return None

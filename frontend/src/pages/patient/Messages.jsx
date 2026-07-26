@@ -15,11 +15,11 @@ function NewConversationModal({ onClose, onCreated }) {
     queryKey: ['patient-appointments-for-msg'],
     queryFn: () => appointmentService.list({ status: 'confirmed' }).then((r) => {
       const all = r.data.results || r.data
-      // Deduplicate by doctor id
       const seen = new Set()
       return all.filter((a) => {
-        if (seen.has(a.doctor)) return false
-        seen.add(a.doctor)
+        const docId = a.doctor?.id || a.doctor
+        if (seen.has(docId)) return false
+        seen.add(docId)
         return true
       })
     }),
@@ -57,19 +57,19 @@ function NewConversationModal({ onClose, onCreated }) {
             <div className="space-y-2">
               <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">Select a doctor to message:</p>
               {appointments.map((appt) => {
-                const doc = appt.doctor_detail || {}
-                const name = appt.doctor_name || 'Doctor'
+                const docUser = appt.doctor?.user
+                const name = appt.doctor_name || (docUser ? `Dr. ${docUser.first_name} ${docUser.last_name}` : 'Doctor')
                 return (
                   <button
                     key={appt.id}
-                    onClick={() => mutate(appt.doctor)}
+                    onClick={() => mutate(appt.doctor?.id || appt.doctor)}
                     disabled={isPending}
                     className="w-full flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors text-left"
                   >
-                    <Avatar name={name} size="sm" />
+                    <Avatar name={name} src={docUser?.avatar} size="sm" />
                     <div>
                       <p className="text-sm font-medium text-gray-900 dark:text-white">{name}</p>
-                      <p className="text-xs text-gray-400">{appt.doctor_specialization}</p>
+                      <p className="text-xs text-gray-400">{appt.doctor?.specialization?.name || appt.doctor_specialization}</p>
                     </div>
                   </button>
                 )

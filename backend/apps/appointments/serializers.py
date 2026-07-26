@@ -13,9 +13,28 @@ class PatientSummarySerializer(serializers.Serializer):
     country = serializers.CharField()
 
 
+class DoctorUserSummarySerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    first_name = serializers.CharField()
+    last_name = serializers.CharField()
+    avatar = serializers.CharField()
+
+
+class DoctorSpecializationSummarySerializer(serializers.Serializer):
+    name = serializers.CharField()
+
+
+class DoctorSummarySerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    user = DoctorUserSummarySerializer()
+    specialization = DoctorSpecializationSummarySerializer()
+    consultation_fee = serializers.DecimalField(max_digits=10, decimal_places=2)
+
+
 class AppointmentSerializer(serializers.ModelSerializer):
     patient_name = serializers.CharField(source='patient.full_name', read_only=True)
     patient = PatientSummarySerializer(read_only=True)
+    doctor = DoctorSummarySerializer(read_only=True)
     doctor_name = serializers.CharField(source='doctor.user.full_name', read_only=True)
     doctor_specialization = serializers.CharField(source='doctor.specialization.name', read_only=True)
 
@@ -46,7 +65,29 @@ class AppointmentCreateSerializer(serializers.ModelSerializer):
 
 
 class ConsultationNoteSerializer(serializers.ModelSerializer):
+    patient_name = serializers.SerializerMethodField()
+    patient_avatar = serializers.SerializerMethodField()
+    scheduled_at = serializers.SerializerMethodField()
+
     class Meta:
         model = ConsultationNote
         fields = '__all__'
         read_only_fields = ['id', 'doctor', 'disclaimer', 'created_at', 'updated_at']
+
+    def get_patient_name(self, obj):
+        try:
+            return obj.appointment.patient.full_name
+        except Exception:
+            return ''
+
+    def get_patient_avatar(self, obj):
+        try:
+            return obj.appointment.patient.avatar
+        except Exception:
+            return ''
+
+    def get_scheduled_at(self, obj):
+        try:
+            return obj.appointment.scheduled_at.isoformat()
+        except Exception:
+            return None

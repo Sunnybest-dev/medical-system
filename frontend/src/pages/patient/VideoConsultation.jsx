@@ -173,13 +173,6 @@ export default function VideoConsultation() {
         )}
         <div ref={jitsiRef} className="w-full h-full" />
       </div>
-
-      {/* Footer disclaimer */}
-      <div className="bg-gray-900 border-t border-gray-800 px-4 py-2 flex-shrink-0">
-        <p className="text-gray-600 text-xs text-center">
-          This consultation is for informational purposes only and does not constitute a medical diagnosis.
-        </p>
-      </div>
     </div>
   )
 }

@@ -654,7 +654,7 @@ export default function AIAssessment() {
                     {suggestedDoctorsData.doctors.map(doctor => (
                       <div key={doctor.id} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                         <div className="relative flex-shrink-0">
-                          <Avatar name={doctor.full_name} src={doctor.avatar} size="md" />
+                        <Avatar name={doctor.full_name || `${doctor.user?.first_name} ${doctor.user?.last_name}`} src={doctor.avatar || doctor.user?.avatar} size="md" />
                           <span className={cn(
                             'absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white dark:border-gray-800',
                             doctor.online_status === 'available' ? 'bg-emerald-500' :
@@ -663,8 +663,8 @@ export default function AIAssessment() {
                           )} />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">{doctor.full_name}</p>
-                          <p className="text-xs text-primary-600 dark:text-primary-400 font-medium">{doctor.specialization_name}</p>
+                          <p className="font-semibold text-sm text-gray-900 dark:text-white truncate">{doctor.full_name || `${doctor.user?.first_name} ${doctor.user?.last_name}`}</p>
+                          <p className="text-xs text-primary-600 dark:text-primary-400 font-medium">{doctor.specialization_name || doctor.specialization?.name}</p>
                           <div className="flex items-center gap-2 mt-0.5">
                             <span className="flex items-center gap-0.5 text-xs text-gray-500">
                               <Star className="w-3 h-3 text-amber-400 fill-amber-400" />

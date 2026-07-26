@@ -40,9 +40,9 @@ class AppointmentDetailView(generics.RetrieveUpdateAPIView):
     def get_queryset(self):
         user = self.request.user
         if user.role == User.Role.PATIENT:
-            return Appointment.objects.filter(patient=user)
+            return Appointment.objects.filter(patient=user).select_related('doctor__user', 'doctor__specialization')
         elif user.role == User.Role.DOCTOR:
-            return Appointment.objects.filter(doctor__user=user)
+            return Appointment.objects.filter(doctor__user=user).select_related('patient', 'doctor__specialization')
         return Appointment.objects.all()
 
 
@@ -76,6 +76,7 @@ class AppointmentStatusUpdateView(APIView):
             send_appointment_notification(str(appointment.id), new_status)
         except Exception:
             pass
+        appointment = Appointment.objects.select_related('patient', 'doctor__user', 'doctor__specialization').get(pk=appointment.pk)
         return Response(AppointmentSerializer(appointment).data)
 
 
@@ -170,10 +171,10 @@ class ConsultationNoteView(generics.ListCreateAPIView):
     def get_queryset(self):
         user = self.request.user
         if user.role == User.Role.DOCTOR:
-            return ConsultationNote.objects.filter(doctor__user=user)
+            return ConsultationNote.objects.filter(doctor__user=user).select_related('appointment__patient')
         return ConsultationNote.objects.filter(
             appointment__patient=user, is_shared_with_patient=True
-        )
+        ).select_related('appointment__patient')
 
     def perform_create(self, serializer):
         appointment = Appointment.objects.get(
@@ -190,8 +191,8 @@ class ConsultationNoteDetailView(generics.RetrieveUpdateAPIView):
     def get_queryset(self):
         user = self.request.user
         if user.role == User.Role.DOCTOR:
-            return ConsultationNote.objects.filter(doctor__user=user)
-        return ConsultationNote.objects.filter(appointment__patient=user, is_shared_with_patient=True)
+            return ConsultationNote.objects.filter(doctor__user=user).select_related('appointment__patient')
+        return ConsultationNote.objects.filter(appointment__patient=user, is_shared_with_patient=True).select_related('appointment__patient')
 
 
 class TodayAppointmentsView(generics.ListAPIView):
@@ -205,8 +206,8 @@ class TodayAppointmentsView(generics.ListAPIView):
                 doctor__user=self.request.user,
                 scheduled_at__date=today,
                 status__in=['pending', 'confirmed']
-            )
+            ).select_related('patient', 'doctor__user', 'doctor__specialization')
         return Appointment.objects.filter(
             patient=self.request.user,
             scheduled_at__date=today
-        )
+        ).select_related('doctor__user', 'doctor__specialization')

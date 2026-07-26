@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useParams, Link } from 'react-router-dom'
 import { Star, MapPin, Globe, Clock, Award, ArrowLeft } from 'lucide-react'
 import { doctorService } from '@/services'
-import { Card, Badge, Avatar, Spinner, MedicalDisclaimer } from '@/components/ui'
+import { Card, Badge, Avatar, Spinner } from '@/components/ui'
 
 export default function DoctorDetailPage() {
   const { id } = useParams()

@@ -65,13 +65,40 @@ class DoctorPatientDetailView(APIView):
 class MedicalDocumentListCreateView(generics.ListCreateAPIView):
     serializer_class = MedicalDocumentSerializer
     permission_classes = [permissions.IsAuthenticated, IsPatient]
+    parser_classes = [MultiPartParser, FormParser]
 
     def get_queryset(self):
         return MedicalDocument.objects.filter(patient__user=self.request.user)
 
-    def perform_create(self, serializer):
-        profile, _ = PatientProfile.objects.get_or_create(user=self.request.user)
+    def create(self, request, *args, **kwargs):
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file provided.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        allowed_types = ['image/jpeg', 'image/png', 'application/pdf']
+        if file.content_type not in allowed_types:
+            return Response({'error': 'Invalid file type. Allowed: JPEG, PNG, PDF.'}, status=status.HTTP_400_BAD_REQUEST)
+        if file.size > 10 * 1024 * 1024:
+            return Response({'error': 'File too large. Max 10MB.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            result = cloudinary.uploader.upload(file, folder='mediai/documents', resource_type='auto')
+            file_url = result['secure_url']
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).error(f'Cloudinary upload failed: {e}')
+            return Response({'error': 'File upload failed. Please try again.'}, status=status.HTTP_502_BAD_GATEWAY)
+
+        profile, _ = PatientProfile.objects.get_or_create(user=request.user)
+        serializer = self.get_serializer(data={
+            'document_type': request.data.get('document_type', 'other'),
+            'title': request.data.get('title', file.name),
+            'file_url': file_url,
+            'notes': request.data.get('notes', ''),
+        })
+        serializer.is_valid(raise_exception=True)
         serializer.save(patient=profile)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class MedicalDocumentUploadView(APIView):
